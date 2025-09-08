@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm view:*)",
+      "Bash(npm install)",
+      "Bash(npx hardhat:*)",
+      "Bash(npm run dev:*)",
+      "Bash(curl:*)",
+      "WebFetch(domain:docs.metamask.io)",
+      "Bash(npm install:*)",
+      "Bash(lsof:*)",
+      "Bash(aws s3 ls:*)",
+      "Bash(npm run deploy:*)",
+      "Bash(pkill:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataTrade</title>
+    <style>
+        body {
+            width: 350px;
+            height: 500px;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            padding: 20px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        .balance-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        .balance-label {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 8px;
+        }
+        .balance-amount {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        .balance-currency {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        .stats {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-item {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        .stat-label {
+            font-size: 11px;
+            opacity: 0.8;
+        }
+        .connect-wallet {
+            background: #ff6b35;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            padding: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+        .connect-wallet:hover {
+            background: #e55a2b;
+            transform: translateY(-2px);
+        }
+        .submit-data {
+            background: #4CAF50;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            padding: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+        .submit-data:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        .submit-data:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .status {
+            text-align: center;
+            font-size: 12px;
+            opacity: 0.8;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+        }
+        .connected {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        .disconnected {
+            color: #ff6b35;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">DataTrade</div>
+            <div class="subtitle">Earn tokens from your browsing data</div>
+        </div>
+        
+        <div class="balance-card">
+            <div class="balance-label">Your Balance</div>
+            <div class="balance-amount" id="balance">0</div>
+            <div class="balance-currency">DTT</div>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-value" id="pages-visited">0</div>
+                <div class="stat-label">Pages Visited</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="time-tracked">0</div>
+                <div class="stat-label">Minutes Tracked</div>
+            </div>
+        </div>
+        
+        <button class="connect-wallet" id="connect-btn">Connect Wallet</button>
+        <button class="submit-data" id="submit-btn" disabled>Submit Data for Tokens</button>
+        
+        <div class="status" id="status">
+            <span class="disconnected">Wallet not connected</span>
+        </div>
+    </div>
+    
+    <script src="ethers.min.js"></script>
+    <script src="popup.js"></script>
+</body>
+</html>
