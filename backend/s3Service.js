@@ -54,6 +54,18 @@ class S3DataService {
       }));
     }
 
+    // Anonymize ChatGPT prompts (keep for analytics but remove sensitive content)
+    if (anonymized.chatgptPrompts && Array.isArray(anonymized.chatgptPrompts)) {
+      anonymized.chatgptPrompts = anonymized.chatgptPrompts.map(item => ({
+        type: item.type,
+        domain: item.domain,
+        timestamp: item.timestamp,
+        promptLength: item.promptLength,
+        // Remove actual prompt content for privacy in anonymized version
+        category: this.categorizePrompt(item.prompt)
+      }));
+    }
+
     return anonymized;
   }
 
@@ -66,6 +78,22 @@ class S3DataService {
     if (domain.includes('news') || domain.includes('blog')) return 'news';
     if (domain.includes('video') || domain.includes('youtube') || domain.includes('netflix')) return 'entertainment';
     if (domain.includes('work') || domain.includes('office') || domain.includes('docs')) return 'productivity';
+    
+    return 'general';
+  }
+
+  // Categorize ChatGPT prompts for analytics while preserving privacy
+  categorizePrompt(prompt) {
+    if (!prompt) return 'unknown';
+    
+    const lower = prompt.toLowerCase();
+    
+    if (lower.includes('code') || lower.includes('program') || lower.includes('debug')) return 'programming';
+    if (lower.includes('write') || lower.includes('essay') || lower.includes('article')) return 'writing';
+    if (lower.includes('explain') || lower.includes('what is') || lower.includes('how does')) return 'education';
+    if (lower.includes('help') || lower.includes('solve') || lower.includes('fix')) return 'problem_solving';
+    if (lower.includes('create') || lower.includes('design') || lower.includes('make')) return 'creative';
+    if (lower.includes('analyze') || lower.includes('compare') || lower.includes('evaluate')) return 'analysis';
     
     return 'general';
   }

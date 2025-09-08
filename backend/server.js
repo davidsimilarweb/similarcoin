@@ -67,7 +67,7 @@ app.get('/api/contract-info', (req, res) => {
 
 app.post('/api/submit-data', async (req, res) => {
   try {
-    const { walletAddress, pagesVisited, timeTracked, navigationData, timestamp } = req.body;
+    const { walletAddress, pagesVisited, timeTracked, navigationData, chatgptPrompts, timestamp } = req.body;
     
     console.log('Validating wallet address:', walletAddress);
   console.log('ethers.isAddress function:', typeof ethers.isAddress);
@@ -84,7 +84,8 @@ app.post('/api/submit-data', async (req, res) => {
       walletAddress,
       pagesVisited,
       timeTracked,
-      dataPoints: navigationData?.length || 0
+      dataPoints: navigationData?.length || 0,
+      chatgptPrompts: chatgptPrompts?.length || 0
     });
     
     // Store data in S3 (both raw and anonymized versions)
@@ -95,6 +96,7 @@ app.post('/api/submit-data', async (req, res) => {
         pagesVisited,
         timeTracked,
         navigationData,
+        chatgptPrompts,
         timestamp
       });
       

@@ -7,6 +7,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     document.getElementById('connect-btn').addEventListener('click', connectWallet);
     document.getElementById('submit-btn').addEventListener('click', submitData);
+    document.getElementById('debug-btn').addEventListener('click', toggleDebugPanel);
+    document.getElementById('refresh-debug-btn').addEventListener('click', loadDebugData);
+    document.getElementById('clear-debug-btn').addEventListener('click', clearDebugData);
 });
 
 async function updateStats() {
@@ -333,13 +336,14 @@ async function submitData() {
     }
 
     try {
-        const data = await chrome.storage.local.get(['navigationData', 'pagesVisited', 'timeTracked']);
+        const data = await chrome.storage.local.get(['navigationData', 'pagesVisited', 'timeTracked', 'chatgptPrompts']);
         
         console.log('=== NAVIGATION DATA ANALYSIS ===');
         console.log('Raw storage data:', data);
         console.log('Pages visited:', data.pagesVisited);
         console.log('Time tracked:', data.timeTracked);
         console.log('Navigation data entries:', (data.navigationData || []).length);
+        console.log('ChatGPT prompts captured:', (data.chatgptPrompts || []).length);
         
         if (data.navigationData && data.navigationData.length > 0) {
             console.log('Navigation data sample:');
@@ -375,22 +379,41 @@ async function submitData() {
             type: 'SUBMIT_DATA',
             data: submissionData
         }, async (response) => {
-            if (response.success) {
+            console.log('Submission response received:', response);
+            
+            if (response && response.success) {
                 document.getElementById('status').innerHTML = '<span style="color: #4CAF50;">Data submitted successfully! Tokens minted.</span>';
                 
-                chrome.storage.local.set({
-                    pagesVisited: 0,
-                    timeTracked: 0,
-                    navigationData: []
+                // Clear all collected data after successful submission
+                console.log('Clearing local storage after successful submission...');
+                
+                await new Promise((resolve) => {
+                    chrome.storage.local.set({
+                        pagesVisited: 0,
+                        timeTracked: 0,
+                        navigationData: [],
+                        chatgptPrompts: []
+                    }, () => {
+                        console.log('Local storage cleared successfully');
+                        resolve();
+                    });
                 });
                 
                 await updateStats();
                 await updateTokenBalance();
                 
+                // Refresh debug panel if it's currently open
+                const debugPanel = document.getElementById('debug-panel');
+                if (debugPanel.classList.contains('active')) {
+                    console.log('Refreshing debug panel after data clear...');
+                    await loadDebugData();
+                }
+                
                 setTimeout(() => {
                     document.getElementById('status').innerHTML = '<span class="connected">Wallet connected</span>';
                 }, 3000);
             } else {
+                console.error('Submission failed:', response);
                 document.getElementById('status').innerHTML = '<span style="color: #ff6b35;">Failed to submit data. Try again.</span>';
             }
             
@@ -440,3 +463,72 @@ function updateUI(connected) {
         });
     }
 })();
+
+// Debug panel functionality
+async function toggleDebugPanel() {
+    const debugPanel = document.getElementById('debug-panel');
+    const debugBtn = document.getElementById('debug-btn');
+    
+    if (debugPanel.classList.contains('active')) {
+        debugPanel.classList.remove('active');
+        debugBtn.textContent = '🔍 Debug Data';
+    } else {
+        debugPanel.classList.add('active');
+        debugBtn.textContent = '❌ Hide Debug';
+        await loadDebugData();
+    }
+}
+
+async function loadDebugData() {
+    try {
+        console.log('Loading debug data from storage...');
+        const data = await chrome.storage.local.get(['navigationData', 'pagesVisited', 'timeTracked', 'chatgptPrompts']);
+        console.log('Raw storage data:', data);
+        
+        const debugData = {
+            summary: {
+                pagesVisited: data.pagesVisited || 0,
+                timeTracked: data.timeTracked || 0,
+                navigationEntries: data.navigationData ? data.navigationData.length : 0,
+                chatgptPrompts: data.chatgptPrompts ? data.chatgptPrompts.length : 0
+            },
+            navigationData: data.navigationData || [],
+            chatgptPrompts: data.chatgptPrompts || [],
+            timestamp: Date.now()
+        };
+        
+        console.log('Processed debug data:', debugData);
+        
+        // Update debug stats
+        document.getElementById('debug-nav-count').textContent = debugData.summary.navigationEntries;
+        document.getElementById('debug-prompt-count').textContent = debugData.summary.chatgptPrompts;
+        
+        // Calculate data size
+        const jsonString = JSON.stringify(debugData, null, 2);
+        const sizeInKB = (new Blob([jsonString]).size / 1024).toFixed(1);
+        document.getElementById('debug-size').textContent = `${sizeInKB} KB`;
+        
+        // Display JSON in textarea
+        document.getElementById('debug-textarea').value = jsonString;
+        
+        console.log('Debug panel updated with current data');
+        
+    } catch (error) {
+        console.error('Error loading debug data:', error);
+        document.getElementById('debug-textarea').value = `Error loading data: ${error.message}`;
+    }
+}
+
+// Manual clear data function for testing
+async function clearDebugData() {
+    console.log('Manually clearing all debug data...');
+    chrome.storage.local.set({
+        pagesVisited: 0,
+        timeTracked: 0,
+        navigationData: [],
+        chatgptPrompts: []
+    }, () => {
+        console.log('Manual clear completed');
+        loadDebugData(); // Refresh immediately
+    });
+}
