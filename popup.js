@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     
     document.getElementById('connect-btn').addEventListener('click', connectWallet);
+    document.getElementById('disconnect-btn').addEventListener('click', disconnectWallet);
     document.getElementById('submit-btn').addEventListener('click', submitData);
     document.getElementById('refresh-balance-btn').addEventListener('click', async () => {
         console.log('[Debug] Manual balance refresh triggered');
@@ -627,6 +628,7 @@ async function submitData() {
 
 function updateUI(connectionState) {
     const connectBtn = document.getElementById('connect-btn');
+    const disconnectBtn = document.getElementById('disconnect-btn');
     const submitBtn = document.getElementById('submit-btn');
     const status = document.getElementById('status');
     const walletShort = document.getElementById('wallet-short');
@@ -635,8 +637,9 @@ function updateUI(connectionState) {
     if (connectionState === true) {
         // Connected
         const short = `${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
-        connectBtn.textContent = 'Connected';
-        connectBtn.disabled = false;
+        connectBtn.style.display = 'none';
+        disconnectBtn.style.display = 'block';
+        disconnectBtn.disabled = false;
         
         if (walletShort) {
             walletShort.textContent = short;
@@ -648,6 +651,8 @@ function updateUI(connectionState) {
         status.innerHTML = '<span class="connected">Wallet connected</span>';
     } else if (connectionState === 'connecting') {
         // Connecting - show loading state
+        connectBtn.style.display = 'block';
+        disconnectBtn.style.display = 'none';
         connectBtn.innerHTML = 'Connecting <span class="spinner"></span>';
         connectBtn.disabled = true;
         
@@ -661,6 +666,8 @@ function updateUI(connectionState) {
         status.innerHTML = '<span class="connecting">Connecting wallet...</span>';
     } else {
         // Disconnected
+        connectBtn.style.display = 'block';
+        disconnectBtn.style.display = 'none';
         connectBtn.textContent = 'Connect Wallet';
         connectBtn.disabled = false;
         
@@ -748,6 +755,23 @@ function setupTabNavigation() {
 // Open integration in new tab
 function openIntegration(url) {
     chrome.tabs.create({ url: url });
+}
+
+// Disconnect wallet function
+async function disconnectWallet() {
+    console.log('[Disconnect] Disconnecting wallet');
+    
+    // Reset the connection
+    userAccount = null;
+    web3Provider = null;
+    
+    // Update the UI
+    updateUI(false);
+    
+    // Save the disconnected state
+    await saveWalletState(false, null);
+    
+    console.log('[Disconnect] Wallet disconnected');
 }
 
 // Set up event listener for account changes
