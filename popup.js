@@ -31,32 +31,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('connect-btn').addEventListener('click', connectWallet);
     document.getElementById('disconnect-btn').addEventListener('click', disconnectWallet);
     document.getElementById('submit-btn').addEventListener('click', submitData);
-    document.getElementById('refresh-balance-btn').addEventListener('click', async () => {
-        console.log('[Debug] Manual balance refresh triggered');
-        console.log('[Debug] Current userAccount:', userAccount);
-        console.log('[Debug] Current web3Provider:', !!web3Provider);
-        
-        // Debug: Log current storage state with detailed breakdown
-        const storageData = await chrome.storage.local.get(['pagesVisited', 'timeTracked', 'navigationData', 'chatgptPrompts', 'tokenBalance']);
-        console.log('[Debug] Current storage state:', {
-            pagesVisited: storageData.pagesVisited,
-            timeTracked: storageData.timeTracked, 
-            navigationDataLength: (storageData.navigationData || []).length,
-            chatgptPromptsLength: (storageData.chatgptPrompts || []).length,
-            tokenBalance: storageData.tokenBalance,
-            calculatedClaimable: ((storageData.pagesVisited || 0) * 0.01).toFixed(2)
-        });
-        
-        if (!userAccount || !web3Provider) {
-            console.log('[Debug] Missing connection, attempting to reconnect...');
-            await loadSavedWalletState();
-        } else {
-            await updateTokenBalance();
-        }
-    });
     
-    // Setup tab navigation
-    setupTabNavigation();
+    // Setup tab navigation with a small delay to ensure DOM is ready
+    setTimeout(() => {
+        setupTabNavigation();
+        
+        // Double-check tabs are clickable
+        const exploreTab = document.getElementById('explore-tab');
+        if (exploreTab && !exploreTab.onclick) {
+            console.log('[Tabs] Manually adding click handler as fallback');
+            exploreTab.addEventListener('click', () => {
+                console.log('[Tabs] Fallback: Explore tab clicked');
+                document.getElementById('home-content').classList.add('hidden');
+                document.getElementById('explore-content').classList.remove('hidden');
+                document.getElementById('home-tab').classList.remove('active');
+                document.getElementById('explore-tab').classList.add('active');
+            });
+        }
+    }, 100);
 });
 
 async function updateStats() {
@@ -87,9 +79,26 @@ async function updateStats() {
             console.error('[Stats] Claimable element not found!');
         }
         
+        // Update coupon availability based on balance
+        updateCouponAvailability(parseFloat(balance));
+        
     } catch (error) {
         // Silently handle error
     }
+}
+
+// Update coupon items based on available balance
+function updateCouponAvailability(balance) {
+    const couponItems = document.querySelectorAll('.coupon-item');
+    
+    couponItems.forEach(item => {
+        const cost = parseFloat(item.dataset.cost);
+        if (balance < cost) {
+            item.classList.add('insufficient');
+        } else {
+            item.classList.remove('insufficient');
+        }
+    });
 }
 
 
@@ -729,13 +738,32 @@ async function copyToClipboard(text) {
 
 // Tab navigation setup
 function setupTabNavigation() {
+    console.log('[Tabs] Setting up tab navigation...');
+    
     const tabs = document.querySelectorAll('.tab');
     const homeContent = document.getElementById('home-content');
     const exploreContent = document.getElementById('explore-content');
     
-    tabs.forEach(tab => {
+    console.log('[Tabs] Found tabs:', tabs.length);
+    console.log('[Tabs] Home content:', !!homeContent);
+    console.log('[Tabs] Explore content:', !!exploreContent);
+    
+    if (tabs.length === 0) {
+        console.error('[Tabs] No tab elements found!');
+        return;
+    }
+    
+    if (!homeContent || !exploreContent) {
+        console.error('[Tabs] Missing content elements!');
+        return;
+    }
+    
+    tabs.forEach((tab, index) => {
+        console.log(`[Tabs] Setting up tab ${index}:`, tab.dataset.tab);
+        
         tab.addEventListener('click', () => {
             const tabType = tab.dataset.tab;
+            console.log('[Tabs] Clicked tab:', tabType);
             
             // Update active tab
             tabs.forEach(t => t.classList.remove('active'));
@@ -743,19 +771,80 @@ function setupTabNavigation() {
             
             // Show appropriate content
             if (tabType === 'home') {
+                console.log('[Tabs] Switching to home');
                 homeContent.classList.remove('hidden');
                 exploreContent.classList.add('hidden');
+                
+                // Update stats when switching to home
+                updateStats();
             } else if (tabType === 'explore') {
+                console.log('[Tabs] Switching to explore');
                 homeContent.classList.add('hidden');
                 exploreContent.classList.remove('hidden');
+                
+                // Update coupon availability when switching to explore
+                const data = chrome.storage.local.get(['tokenBalance'], (result) => {
+                    const balance = parseFloat(result.tokenBalance || 0);
+                    updateCouponAvailability(balance);
+                });
             }
         });
     });
+    
+    console.log('[Tabs] Tab navigation setup complete');
 }
 
 // Open integration in new tab
 function openIntegration(url) {
     chrome.tabs.create({ url: url });
+}
+
+// Redeem coupon functionality
+async function redeemCoupon(brand, cost, description) {
+    try {
+        console.log(`[Coupon] Attempting to redeem ${brand} coupon for ${cost} SIM`);
+        
+        // Check if wallet is connected
+        if (!userAccount || !web3Provider) {
+            alert('Please connect your wallet first to redeem coupons.');
+            return;
+        }
+        
+        // Get current balance
+        const data = await chrome.storage.local.get(['tokenBalance']);
+        const balance = parseFloat(data.tokenBalance || 0);
+        
+        console.log(`[Coupon] Current balance: ${balance} SIM, Required: ${cost} SIM`);
+        
+        if (balance < cost) {
+            alert(`Insufficient balance! You need ${cost} SIM tokens but only have ${balance.toFixed(2)} SIM.`);
+            return;
+        }
+        
+        // Confirm redemption
+        const confirmed = confirm(`Redeem ${description} for ${cost} SIM tokens?`);
+        if (!confirmed) return;
+        
+        // For now, simulate the redemption (in a real app, this would call a backend API)
+        alert(`🎉 Coupon redeemed successfully!\n\n${description}\n\nCoupon code: ${generateCouponCode(brand)}\n\nThis is a demo - in production, you'd receive a real coupon code via email.`);
+        
+        // In a real implementation, you would:
+        // 1. Call backend API to process the redemption
+        // 2. Deduct tokens from user's balance
+        // 3. Generate real coupon code
+        // 4. Send email with coupon details
+        
+    } catch (error) {
+        console.error('[Coupon] Redemption error:', error);
+        alert('Failed to redeem coupon. Please try again.');
+    }
+}
+
+// Generate demo coupon code
+function generateCouponCode(brand) {
+    const prefix = brand.toUpperCase().substring(0, 3);
+    const numbers = Math.floor(Math.random() * 90000) + 10000;
+    return `${prefix}${numbers}`;
 }
 
 // Disconnect wallet function

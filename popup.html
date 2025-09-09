@@ -210,6 +210,62 @@
         .integration-placeholder {
             margin-top: 12px;
         }
+        .coupon-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 8px;
+        }
+        .coupon-item:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+            transform: translateY(-1px);
+        }
+        .coupon-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .coupon-icon {
+            font-size: 24px;
+            width: 32px;
+            text-align: center;
+        }
+        .coupon-info {
+            flex: 1;
+        }
+        .coupon-name {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 2px;
+        }
+        .coupon-desc {
+            font-size: 11px;
+            color: #64748b;
+        }
+        .coupon-cost {
+            background: linear-gradient(90deg, #2563eb, #1d4ed8);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(37,99,235,0.15);
+        }
+        .coupon-item.insufficient {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .coupon-item.insufficient .coupon-cost {
+            background: #94a3b8;
+            box-shadow: none;
+        }
     </style>
 </head>
 <body>
@@ -243,7 +299,6 @@
                     <div style="display: flex; gap: 8px;">
                         <button class="button" id="connect-btn" style="width:auto; padding:10px 14px; box-shadow:none; font-size: 12px;">Connect</button>
                         <button class="button" id="disconnect-btn" style="width:auto; padding:10px 14px; box-shadow:none; font-size: 12px; background: #ef4444; display: none;">Disconnect</button>
-                        <button class="button" id="refresh-balance-btn" style="width:auto; padding:10px 14px; box-shadow:none; font-size: 12px; background: #6c757d;">🔄</button>
                     </div>
                 </div>
             </div>
@@ -257,10 +312,85 @@
         </div>
         
         <div class="tab-content hidden" id="explore-content">
+            <!-- Coupons Section -->
             <div class="card">
                 <div style="text-align: center; margin-bottom: 16px;">
-                    <div style="font-weight: 700; font-size: 16px; margin-bottom: 4px;">Explore Integrations</div>
-                    <div class="muted">Discover ways to use your SIM tokens</div>
+                    <div style="font-weight: 700; font-size: 16px; margin-bottom: 4px;">🎫 Redeem Coupons</div>
+                    <div class="muted">Exchange your SIM tokens for brand discounts</div>
+                </div>
+                
+                <div class="coupon-item" data-brand="nike" data-cost="50" onclick="redeemCoupon('nike', 50, '20% off Nike shoes & apparel')">
+                    <div class="coupon-brand">
+                        <div class="coupon-icon">👟</div>
+                        <div class="coupon-info">
+                            <div class="coupon-name">Nike</div>
+                            <div class="coupon-desc">20% off shoes & apparel</div>
+                        </div>
+                    </div>
+                    <div class="coupon-cost">50 SIM</div>
+                </div>
+                
+                <div class="coupon-item" data-brand="starbucks" data-cost="25" onclick="redeemCoupon('starbucks', 25, '$5 Starbucks gift card')">
+                    <div class="coupon-brand">
+                        <div class="coupon-icon">☕</div>
+                        <div class="coupon-info">
+                            <div class="coupon-name">Starbucks</div>
+                            <div class="coupon-desc">$5 gift card</div>
+                        </div>
+                    </div>
+                    <div class="coupon-cost">25 SIM</div>
+                </div>
+                
+                <div class="coupon-item" data-brand="amazon" data-cost="100" onclick="redeemCoupon('amazon', 100, '$10 Amazon gift card')">
+                    <div class="coupon-brand">
+                        <div class="coupon-icon">📦</div>
+                        <div class="coupon-info">
+                            <div class="coupon-name">Amazon</div>
+                            <div class="coupon-desc">$10 gift card</div>
+                        </div>
+                    </div>
+                    <div class="coupon-cost">100 SIM</div>
+                </div>
+                
+                <div class="coupon-item" data-brand="spotify" data-cost="75" onclick="redeemCoupon('spotify', 75, '3 months Spotify Premium')">
+                    <div class="coupon-brand">
+                        <div class="coupon-icon">🎵</div>
+                        <div class="coupon-info">
+                            <div class="coupon-name">Spotify</div>
+                            <div class="coupon-desc">3 months Premium</div>
+                        </div>
+                    </div>
+                    <div class="coupon-cost">75 SIM</div>
+                </div>
+                
+                <div class="coupon-item" data-brand="mcdonalds" data-cost="15" onclick="redeemCoupon('mcdonalds', 15, 'Free Big Mac')">
+                    <div class="coupon-brand">
+                        <div class="coupon-icon">🍔</div>
+                        <div class="coupon-info">
+                            <div class="coupon-name">McDonald's</div>
+                            <div class="coupon-desc">Free Big Mac</div>
+                        </div>
+                    </div>
+                    <div class="coupon-cost">15 SIM</div>
+                </div>
+                
+                <div class="coupon-item" data-brand="uber" data-cost="35" onclick="redeemCoupon('uber', 35, '$7 ride credit')">
+                    <div class="coupon-brand">
+                        <div class="coupon-icon">🚗</div>
+                        <div class="coupon-info">
+                            <div class="coupon-name">Uber</div>
+                            <div class="coupon-desc">$7 ride credit</div>
+                        </div>
+                    </div>
+                    <div class="coupon-cost">35 SIM</div>
+                </div>
+            </div>
+            
+            <!-- Integrations Section -->
+            <div class="card" style="margin-top: 12px;">
+                <div style="text-align: center; margin-bottom: 16px;">
+                    <div style="font-weight: 700; font-size: 16px; margin-bottom: 4px;">🔗 Integrations</div>
+                    <div class="muted">Discover platform integrations</div>
                 </div>
                 
                 <div class="integration-item" onclick="openIntegration('https://similarweb.com')">
