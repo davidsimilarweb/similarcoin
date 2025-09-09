@@ -4,7 +4,12 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.set({
     pagesVisited: 0,
     timeTracked: 0,
-    navigationData: []
+    navigationData: [],
+    walletState: {
+      connected: false,
+      account: null,
+      lastConnected: null
+    }
   });
 });
 
@@ -155,6 +160,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     submitDataToBackend(message.data)
       .then(response => sendResponse({ success: true, response }))
       .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  } else if (message.type === 'SAVE_WALLET_STATE') {
+    // Save wallet connection state
+    chrome.storage.local.set({ walletState: message.walletState }, () => {
+      sendResponse({ success: true });
+    });
+    return true;
+  } else if (message.type === 'GET_WALLET_STATE') {
+    // Retrieve wallet connection state
+    chrome.storage.local.get(['walletState'], (result) => {
+      sendResponse({ 
+        success: true, 
+        walletState: result.walletState || { 
+          connected: false, 
+          account: null, 
+          lastConnected: null 
+        } 
+      });
+    });
     return true;
   }
 });

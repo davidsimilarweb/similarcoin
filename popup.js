@@ -3,7 +3,9 @@ let web3Provider = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
     await updateStats();
-    await checkWalletConnection();
+    
+    // Try to load saved wallet state first
+    await loadSavedWalletState();
     
     document.getElementById('connect-btn').addEventListener('click', connectWallet);
     document.getElementById('submit-btn').addEventListener('click', submitData);
@@ -14,7 +16,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         if (!userAccount || !web3Provider) {
             console.log('[Debug] Missing connection, attempting to reconnect...');
-            await checkWalletConnection();
+            await loadSavedWalletState();
         } else {
             await updateTokenBalance();
         }
@@ -257,12 +259,78 @@ function createEthereumProxy(tabId, providerUuid) {
     };
 }
 
+async function loadSavedWalletState() {
+    // Show connecting state right away
+    updateUI('connecting');
+    
+    return new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: 'GET_WALLET_STATE' }, async (response) => {
+            if (response?.success && response.walletState?.connected && response.walletState?.account) {
+                console.log('[Wallet] Found saved state:', response.walletState);
+                
+                // Try to reconnect using the saved account
+                const ethereum = await getEthereum();
+                if (ethereum) {
+                    try {
+                        const accounts = await ethereum.request({ method: 'eth_accounts' });
+                        if (accounts && accounts.length > 0 && 
+                            accounts[0].toLowerCase() === response.walletState.account.toLowerCase()) {
+                            
+                            userAccount = accounts[0];
+                            web3Provider = new ethers.BrowserProvider(ethereum);
+                            
+                            console.log('[Wallet] Reconnected to saved account:', userAccount);
+                            
+                            updateUI(true);
+                            await updateTokenBalance();
+                            resolve(true);
+                            return;
+                        }
+                    } catch (error) {
+                        console.error('[Wallet] Error checking saved state:', error);
+                    }
+                }
+            }
+            
+            // If no saved state or reconnection failed, try fresh connection
+            await checkWalletConnection();
+            resolve(false);
+        });
+    });
+}
+
+async function saveWalletState(connected, account) {
+    const walletState = {
+        connected: connected,
+        account: account,
+        lastConnected: Date.now()
+    };
+    
+    console.log('[Wallet] Saving state:', walletState);
+    
+    return new Promise((resolve) => {
+        chrome.runtime.sendMessage({ 
+            type: 'SAVE_WALLET_STATE', 
+            walletState: walletState 
+        }, (response) => {
+            resolve(response?.success === true);
+        });
+    });
+}
+
 async function connectWallet() {
     console.log('[Connect] Starting wallet connection...');
+    
+    // Show connecting state
+    updateUI('connecting');
+    
     const ethereum = await getEthereum();
     
     if (!ethereum) {
         console.log('[Connect] No ethereum object found');
+        // Update UI back to disconnected state
+        updateUI(false);
+        
         // Check if we're on a restricted page
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tab && (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('moz-extension://'))) {
@@ -291,10 +359,13 @@ async function connectWallet() {
         // Update balance will handle network switching if needed
         await updateTokenBalance();
         
-        chrome.storage.local.set({ connectedWallet: userAccount });
+        // Save wallet state in background script for persistence
+        await saveWalletState(true, userAccount);
         
     } catch (error) {
         console.error('[Connect] Connection error:', error);
+        // Update UI back to disconnected state
+        updateUI(false);
         alert('Failed to connect wallet. Please try again.');
     }
 }
@@ -502,15 +573,19 @@ async function submitData() {
     }
 }
 
-function updateUI(connected) {
+function updateUI(connectionState) {
     const connectBtn = document.getElementById('connect-btn');
     const submitBtn = document.getElementById('submit-btn');
     const status = document.getElementById('status');
     const walletShort = document.getElementById('wallet-short');
     
-    if (connected) {
+    // Connection state can be: true (connected), false (disconnected), or 'connecting'
+    if (connectionState === true) {
+        // Connected
         const short = `${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
         connectBtn.textContent = 'Connected';
+        connectBtn.disabled = false;
+        
         if (walletShort) {
             walletShort.textContent = short;
             walletShort.style.cursor = 'pointer';
@@ -519,8 +594,24 @@ function updateUI(connected) {
         }
         submitBtn.disabled = false;
         status.innerHTML = '<span class="connected">Wallet connected</span>';
+    } else if (connectionState === 'connecting') {
+        // Connecting - show loading state
+        connectBtn.innerHTML = 'Connecting <span class="spinner"></span>';
+        connectBtn.disabled = true;
+        
+        if (walletShort) {
+            walletShort.textContent = 'Connecting...';
+            walletShort.style.cursor = 'default';
+            walletShort.title = '';
+            walletShort.onclick = null;
+        }
+        submitBtn.disabled = true;
+        status.innerHTML = '<span class="connecting">Connecting wallet...</span>';
     } else {
+        // Disconnected
         connectBtn.textContent = 'Connect Wallet';
+        connectBtn.disabled = false;
+        
         if (walletShort) {
             walletShort.textContent = 'Not connected';
             walletShort.style.cursor = 'default';
@@ -616,11 +707,17 @@ function openIntegration(url) {
                 userAccount = null;
                 web3Provider = null;
                 updateUI(false);
+                
+                // Save disconnected state
+                await saveWalletState(false, null);
             } else {
                 userAccount = accounts[0];
                 web3Provider = new ethers.BrowserProvider(ethereum);
                 updateUI(true);
                 await updateTokenBalance();
+                
+                // Save new connected state
+                await saveWalletState(true, userAccount);
             }
         });
     }
