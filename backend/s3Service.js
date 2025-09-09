@@ -23,9 +23,7 @@ class S3DataService {
           secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
         }
       });
-      console.log('S3 client initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize S3 client:', error);
       this.enabled = false;
     }
   }
@@ -131,7 +129,6 @@ class S3DataService {
   // Store raw data submission
   async storeSubmission(submissionData) {
     if (!this.enabled || !this.s3Client) {
-      console.log('S3 storage disabled, skipping...');
       return null;
     }
 
@@ -154,7 +151,6 @@ class S3DataService {
 
       await this.uploadToS3(anonymizedKey, anonymizedData);
 
-      console.log('Data stored successfully:', { rawKey, anonymizedKey });
       
       return {
         submissionId: rawData.submissionId,
@@ -164,7 +160,6 @@ class S3DataService {
       };
 
     } catch (error) {
-      console.error('Failed to store data in S3:', error);
       throw error;
     }
   }
@@ -202,7 +197,6 @@ class S3DataService {
       const data = await response.Body.transformToString();
       return JSON.parse(data);
     } catch (error) {
-      console.error('Failed to retrieve data from S3:', error);
       return null;
     }
   }
@@ -223,7 +217,6 @@ class S3DataService {
       const response = await this.s3Client.send(command);
       return response.Contents || [];
     } catch (error) {
-      console.error('Failed to list submissions:', error);
       return [];
     }
   }
@@ -254,7 +247,6 @@ class S3DataService {
 
       return analytics;
     } catch (error) {
-      console.error('Failed to generate analytics:', error);
       return { error: error.message };
     }
   }

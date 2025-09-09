@@ -7,9 +7,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     document.getElementById('connect-btn').addEventListener('click', connectWallet);
     document.getElementById('submit-btn').addEventListener('click', submitData);
-    document.getElementById('debug-btn').addEventListener('click', toggleDebugPanel);
-    document.getElementById('refresh-debug-btn').addEventListener('click', loadDebugData);
-    document.getElementById('clear-debug-btn').addEventListener('click', clearDebugData);
 });
 
 async function updateStats() {
@@ -20,49 +17,12 @@ async function updateStats() {
         document.getElementById('time-tracked').textContent = data.timeTracked || 0;
         document.getElementById('balance').textContent = data.tokenBalance || 0;
         
-        // Add debugging info
-        const navDataCount = data.navigationData ? data.navigationData.length : 0;
-        const debugInfo = `Debug: ${navDataCount} entries`;
-        
-        // Add debug element if not exists
-        if (!document.getElementById('debug-info')) {
-            const debugDiv = document.createElement('div');
-            debugDiv.id = 'debug-info';
-            debugDiv.style.cssText = 'font-size: 10px; color: #666; margin-top: 5px; cursor: pointer; text-align: center;';
-            debugDiv.title = 'Click to view detailed navigation data in console';
-            debugDiv.onclick = showDebugData;
-            document.querySelector('.stats').appendChild(debugDiv);
-        }
-        
-        document.getElementById('debug-info').textContent = debugInfo;
         
     } catch (error) {
-        console.error('Error updating stats:', error);
+        // Silently handle error
     }
 }
 
-async function showDebugData() {
-    const data = await chrome.storage.local.get(['navigationData', 'pagesVisited', 'timeTracked']);
-    console.log('=== CURRENT NAVIGATION DATA DEBUG ===');
-    console.log('Pages visited:', data.pagesVisited);
-    console.log('Time tracked:', data.timeTracked);
-    console.log('Navigation entries:', data.navigationData ? data.navigationData.length : 0);
-    
-    if (data.navigationData && data.navigationData.length > 0) {
-        console.table(data.navigationData.map(item => ({
-            URL: item.url?.substring(0, 50) + '...',
-            Domain: item.domain,
-            Title: item.title?.substring(0, 30) + '...',
-            'Time (min)': item.timeSpent,
-            Type: item.eventType,
-            Timestamp: new Date(item.timestamp).toLocaleTimeString()
-        })));
-        
-        console.log('Full navigation data:', data.navigationData);
-    } else {
-        console.log('⚠️ No navigation data found! Extension might need to be reloaded.');
-    }
-}
 
 async function checkWalletConnection() {
     const ethereum = await getEthereum();
@@ -75,7 +35,7 @@ async function checkWalletConnection() {
                 await updateTokenBalance();
             }
         } catch (error) {
-            console.error('Error checking wallet connection:', error);
+            // Silently handle error
         }
     }
 }
@@ -125,7 +85,6 @@ async function getEthereum() {
             }
         });
         
-        console.log('Simple MetaMask check:', simpleCheck[0].result);
         
         // Use chrome.scripting to directly check for MetaMask
         const results = await chrome.scripting.executeScript({
@@ -140,10 +99,8 @@ async function getEthereum() {
                     
                     function tryDetection() {
                         attempts++;
-                        console.log(`MetaMask detection attempt ${attempts}/${maxAttempts}`);
                         
                         function onAnnouncement(event) {
-                            console.log('EIP-6963 provider announced:', event.detail.info);
                             providers.push({
                                 info: event.detail.info,
                                 uuid: event.detail.info.uuid
@@ -157,12 +114,8 @@ async function getEthereum() {
                             window.removeEventListener('eip6963:announceProvider', onAnnouncement);
                             
                             // Check for legacy window.ethereum
-                            console.log('EIP-6963 providers found:', providers.length);
-                            console.log('window.ethereum exists:', typeof window.ethereum !== 'undefined');
-                            console.log('window.ethereum:', window.ethereum);
                             
                             if (providers.length === 0 && typeof window.ethereum !== 'undefined') {
-                                console.log('Adding legacy MetaMask provider');
                                 providers.push({
                                     info: { name: 'MetaMask', rdns: 'io.metamask' },
                                     uuid: 'legacy'
@@ -171,7 +124,6 @@ async function getEthereum() {
                             
                             // If no providers found and we have attempts left, try again
                             if (providers.length === 0 && attempts < maxAttempts) {
-                                console.log('No providers found, retrying...');
                                 setTimeout(tryDetection, 500);
                             } else {
                                 resolve(providers);
@@ -185,13 +137,11 @@ async function getEthereum() {
         });
 
         const providers = await results[0].result;
-        console.log('Detected providers:', providers);
         
         if (providers && providers.length > 0) {
             const metaMaskProvider = providers.find(p => 
                 p.info.rdns === 'io.metamask' || p.info.name.includes('MetaMask')
             );
-            console.log('MetaMask provider found:', metaMaskProvider);
             
             if (metaMaskProvider) {
                 return createEthereumProxy(tab.id, metaMaskProvider.uuid);
@@ -203,7 +153,7 @@ async function getEthereum() {
         if (error.message === 'RESTRICTED_URL') {
             console.log('Cannot access MetaMask from this page. Please navigate to a website first.');
         } else {
-            console.error('Error detecting MetaMask:', error);
+            // Silently handle error
         }
         return null;
     }
@@ -299,7 +249,6 @@ async function connectWallet() {
         chrome.storage.local.set({ connectedWallet: userAccount });
         
     } catch (error) {
-        console.error('Error connecting wallet:', error);
         alert('Failed to connect wallet. Please try again.');
     }
 }
@@ -325,7 +274,7 @@ async function updateTokenBalance() {
             chrome.storage.local.set({ tokenBalance: parseFloat(formattedBalance).toFixed(2) });
         }
     } catch (error) {
-        console.error('Error updating token balance:', error);
+        // Silently handle error
     }
 }
 
@@ -338,38 +287,14 @@ async function submitData() {
     try {
         const data = await chrome.storage.local.get(['navigationData', 'pagesVisited', 'timeTracked', 'chatgptPrompts']);
         
-        console.log('=== NAVIGATION DATA ANALYSIS ===');
-        console.log('Raw storage data:', data);
-        console.log('Pages visited:', data.pagesVisited);
-        console.log('Time tracked:', data.timeTracked);
-        console.log('Navigation data entries:', (data.navigationData || []).length);
-        console.log('ChatGPT prompts captured:', (data.chatgptPrompts || []).length);
-        
-        if (data.navigationData && data.navigationData.length > 0) {
-            console.log('Navigation data sample:');
-            data.navigationData.slice(-5).forEach((item, index) => {
-                console.log(`Entry ${index + 1}:`, {
-                    url: item.url,
-                    title: item.title,
-                    domain: item.domain,
-                    timeSpent: item.timeSpent,
-                    eventType: item.eventType,
-                    timestamp: new Date(item.timestamp).toLocaleString()
-                });
-            });
-        } else {
-            console.log('⚠️ No navigation data found!');
-        }
-        
         const submissionData = {
             walletAddress: userAccount,
             pagesVisited: data.pagesVisited || 0,
             timeTracked: data.timeTracked || 0,
             navigationData: data.navigationData || [],
+            chatgptPrompts: data.chatgptPrompts || [],
             timestamp: Date.now()
         };
-        
-        console.log('Submission data:', submissionData);
 
         document.getElementById('submit-btn').disabled = true;
         document.getElementById('submit-btn').textContent = 'Submitting...';
@@ -379,13 +304,8 @@ async function submitData() {
             type: 'SUBMIT_DATA',
             data: submissionData
         }, async (response) => {
-            console.log('Submission response received:', response);
-            
             if (response && response.success) {
                 document.getElementById('status').innerHTML = '<span style="color: #4CAF50;">Data submitted successfully! Tokens minted.</span>';
-                
-                // Clear all collected data after successful submission
-                console.log('Clearing local storage after successful submission...');
                 
                 await new Promise((resolve) => {
                     chrome.storage.local.set({
@@ -393,27 +313,16 @@ async function submitData() {
                         timeTracked: 0,
                         navigationData: [],
                         chatgptPrompts: []
-                    }, () => {
-                        console.log('Local storage cleared successfully');
-                        resolve();
-                    });
+                    }, resolve);
                 });
                 
                 await updateStats();
                 await updateTokenBalance();
                 
-                // Refresh debug panel if it's currently open
-                const debugPanel = document.getElementById('debug-panel');
-                if (debugPanel.classList.contains('active')) {
-                    console.log('Refreshing debug panel after data clear...');
-                    await loadDebugData();
-                }
-                
                 setTimeout(() => {
                     document.getElementById('status').innerHTML = '<span class="connected">Wallet connected</span>';
                 }, 3000);
             } else {
-                console.error('Submission failed:', response);
                 document.getElementById('status').innerHTML = '<span style="color: #ff6b35;">Failed to submit data. Try again.</span>';
             }
             
@@ -422,7 +331,6 @@ async function submitData() {
         });
         
     } catch (error) {
-        console.error('Error submitting data:', error);
         document.getElementById('status').innerHTML = '<span style="color: #ff6b35;">Error submitting data</span>';
         document.getElementById('submit-btn').disabled = false;
         document.getElementById('submit-btn').textContent = 'Submit Data for Tokens';
@@ -464,71 +372,3 @@ function updateUI(connected) {
     }
 })();
 
-// Debug panel functionality
-async function toggleDebugPanel() {
-    const debugPanel = document.getElementById('debug-panel');
-    const debugBtn = document.getElementById('debug-btn');
-    
-    if (debugPanel.classList.contains('active')) {
-        debugPanel.classList.remove('active');
-        debugBtn.textContent = '🔍 Debug Data';
-    } else {
-        debugPanel.classList.add('active');
-        debugBtn.textContent = '❌ Hide Debug';
-        await loadDebugData();
-    }
-}
-
-async function loadDebugData() {
-    try {
-        console.log('Loading debug data from storage...');
-        const data = await chrome.storage.local.get(['navigationData', 'pagesVisited', 'timeTracked', 'chatgptPrompts']);
-        console.log('Raw storage data:', data);
-        
-        const debugData = {
-            summary: {
-                pagesVisited: data.pagesVisited || 0,
-                timeTracked: data.timeTracked || 0,
-                navigationEntries: data.navigationData ? data.navigationData.length : 0,
-                chatgptPrompts: data.chatgptPrompts ? data.chatgptPrompts.length : 0
-            },
-            navigationData: data.navigationData || [],
-            chatgptPrompts: data.chatgptPrompts || [],
-            timestamp: Date.now()
-        };
-        
-        console.log('Processed debug data:', debugData);
-        
-        // Update debug stats
-        document.getElementById('debug-nav-count').textContent = debugData.summary.navigationEntries;
-        document.getElementById('debug-prompt-count').textContent = debugData.summary.chatgptPrompts;
-        
-        // Calculate data size
-        const jsonString = JSON.stringify(debugData, null, 2);
-        const sizeInKB = (new Blob([jsonString]).size / 1024).toFixed(1);
-        document.getElementById('debug-size').textContent = `${sizeInKB} KB`;
-        
-        // Display JSON in textarea
-        document.getElementById('debug-textarea').value = jsonString;
-        
-        console.log('Debug panel updated with current data');
-        
-    } catch (error) {
-        console.error('Error loading debug data:', error);
-        document.getElementById('debug-textarea').value = `Error loading data: ${error.message}`;
-    }
-}
-
-// Manual clear data function for testing
-async function clearDebugData() {
-    console.log('Manually clearing all debug data...');
-    chrome.storage.local.set({
-        pagesVisited: 0,
-        timeTracked: 0,
-        navigationData: [],
-        chatgptPrompts: []
-    }, () => {
-        console.log('Manual clear completed');
-        loadDebugData(); // Refresh immediately
-    });
-}

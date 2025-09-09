@@ -69,8 +69,6 @@ app.post('/api/submit-data', async (req, res) => {
   try {
     const { walletAddress, pagesVisited, timeTracked, navigationData, chatgptPrompts, timestamp } = req.body;
     
-    console.log('Validating wallet address:', walletAddress);
-  console.log('ethers.isAddress function:', typeof ethers.isAddress);
   
   if (!walletAddress || !ethers.isAddress(walletAddress)) {
       return res.status(400).json({ error: 'Invalid wallet address' });
@@ -80,13 +78,6 @@ app.post('/api/submit-data', async (req, res) => {
       return res.status(500).json({ error: 'Token contract not initialized' });
     }
     
-    console.log('Received data submission:', {
-      walletAddress,
-      pagesVisited,
-      timeTracked,
-      dataPoints: navigationData?.length || 0,
-      chatgptPrompts: chatgptPrompts?.length || 0
-    });
     
     // Store data in S3 (both raw and anonymized versions)
     let s3StorageResult = null;
@@ -100,11 +91,7 @@ app.post('/api/submit-data', async (req, res) => {
         timestamp
       });
       
-      if (s3StorageResult) {
-        console.log('Data stored in S3:', s3StorageResult.submissionId);
-      }
     } catch (s3Error) {
-      console.error('S3 storage failed, continuing with token minting:', s3Error);
       // Don't fail the entire request if S3 fails
     }
     
@@ -119,15 +106,11 @@ app.post('/api/submit-data', async (req, res) => {
     // }
     
     try {
-      console.log('Minting tokens to:', walletAddress);
-      console.log('Pages visited:', pagesVisited, '- Reward: 0.1 tokens per page');
       
       // Use simple flat rate: 0.1 tokens per page visited
       const tx = await tokenContract.rewardUserForPages(walletAddress, pagesVisited);
-      console.log('Transaction sent:', tx.hash);
       
       const receipt = await tx.wait();
-      console.log('Transaction confirmed:', receipt.transactionHash);
       
       // Calculate tokens rewarded: 0.1 * pagesVisited
       const tokensRewarded = (pagesVisited * 0.1).toString();
@@ -144,7 +127,6 @@ app.post('/api/submit-data', async (req, res) => {
       });
       
     } catch (mintError) {
-      console.error('Minting error:', mintError);
       
       if (mintError.message.includes('Cooldown period not met')) {
         return res.status(429).json({ 
@@ -160,7 +142,6 @@ app.post('/api/submit-data', async (req, res) => {
     }
     
   } catch (error) {
-    console.error('Data submission error:', error);
     res.status(500).json({ 
       error: 'Internal server error',
       details: error.message 
@@ -191,7 +172,6 @@ app.get('/api/balance/:address', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Balance check error:', error);
     res.status(500).json({ 
       error: 'Failed to check balance',
       details: error.message 
@@ -213,23 +193,6 @@ function calculateDataScore(pagesVisited, timeTracked, navigationData) {
   return score;
 }
 
-function determineDataType(pagesVisited, timeTracked, navigationData) {
-  const score = calculateDataScore(pagesVisited, timeTracked, navigationData);
-  const hasRichData = navigationData && navigationData.length > 0;
-  const uniqueDomains = hasRichData ? new Set(navigationData.map(item => item.domain)).size : 0;
-  
-  // Analyze data quality and richness
-  if (score >= 50 && uniqueDomains >= 5 && timeTracked >= 15) {
-    console.log('High-quality data detected: score', score, 'domains', uniqueDomains, 'time', timeTracked);
-    return 'special'; // 20 tokens - premium quality data
-  } else if (score >= 25 && uniqueDomains >= 3 && timeTracked >= 5) {
-    console.log('Good quality data detected: score', score, 'domains', uniqueDomains, 'time', timeTracked);
-    return 'premium'; // 10 tokens - good quality data
-  } else {
-    console.log('Basic data detected: score', score, 'domains', uniqueDomains, 'time', timeTracked);
-    return 'basic'; // 5 tokens - basic data
-  }
-}
 
 // Analytics endpoint
 app.get('/api/analytics', async (req, res) => {
@@ -238,7 +201,6 @@ app.get('/api/analytics', async (req, res) => {
     const analytics = await s3Service.generateAnalytics(days);
     res.json(analytics);
   } catch (error) {
-    console.error('Analytics error:', error);
     res.status(500).json({ 
       error: 'Failed to generate analytics',
       details: error.message 
@@ -261,7 +223,6 @@ app.get('/api/marketplace', async (req, res) => {
     };
     res.json(marketplace);
   } catch (error) {
-    console.error('Marketplace error:', error);
     res.status(500).json({ 
       error: 'Failed to load marketplace',
       details: error.message 

@@ -1,6 +1,5 @@
 // Enhanced Background Script for Navigation Monitoring
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('DataTrade extension installed - Enhanced Navigation Tracking Active');
   
   chrome.storage.local.set({
     pagesVisited: 0,
@@ -13,7 +12,6 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   // Only process valid URLs and avoid duplicating content script work
   if (changeInfo.status === 'complete' && tab.url && isValidUrl(tab.url)) {
-    console.log('[BackgroundTracker] Tab updated:', tab.url);
     
     // Use as fallback - only record if content script might have failed
     setTimeout(() => {
@@ -27,18 +25,15 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
   try {
     const tab = await chrome.tabs.get(activeInfo.tabId);
     if (tab.url && isValidUrl(tab.url)) {
-      console.log('[BackgroundTracker] Tab activated:', tab.url);
       recordTabActivation(tab);
     }
   } catch (error) {
-    console.error('[BackgroundTracker] Error getting active tab:', error);
   }
 });
 
 // Monitor window focus changes
 chrome.windows.onFocusChanged.addListener((windowId) => {
   if (windowId !== chrome.windows.WINDOW_ID_NONE) {
-    console.log('[BackgroundTracker] Window focused:', windowId);
     recordWindowFocus();
   }
 });
@@ -57,10 +52,7 @@ function verifyAndFallbackRecord(tab, eventType) {
     );
     
     if (!recentRecord) {
-      console.log('[BackgroundTracker] Content script missed, recording fallback:', tab.url);
       recordFallbackNavigation(tab, eventType);
-    } else {
-      console.log('[BackgroundTracker] Content script already recorded:', tab.url);
     }
   });
 }
@@ -91,7 +83,6 @@ function recordFallbackNavigation(tab, eventType) {
       pagesVisited
     });
     
-    console.log('[BackgroundTracker] Recorded fallback navigation:', pageData);
   });
 }
 
@@ -118,7 +109,6 @@ function recordTabActivation(tab) {
     if (!isDuplicate) {
       navigationData.push(activationData);
       chrome.storage.local.set({ navigationData });
-      console.log('[BackgroundTracker] Recorded tab activation:', activationData);
     }
   });
 }
@@ -185,7 +175,6 @@ async function submitDataToBackend(data) {
     
     return await response.json();
   } catch (error) {
-    console.error('Error submitting data:', error);
-    throw error;
+      throw error;
   }
 }

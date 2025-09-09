@@ -22,7 +22,6 @@ class NavigationTracker {
     this.setupHistoryInterception();
     this.setupPageLifecycleListeners();
     
-    console.log('[NavigationTracker] Initialized for:', this.currentUrl);
   }
 
   // Comprehensive navigation event listeners
@@ -108,7 +107,6 @@ class NavigationTracker {
     const newUrl = window.location.href;
     
     if (newUrl !== this.currentUrl) {
-      console.log(`[NavigationTracker] Navigation detected (${type}):`, newUrl);
       
       // Finalize current page session
       this.finalizePageSession(type);
@@ -127,7 +125,6 @@ class NavigationTracker {
   // Handle page becoming visible
   handlePageVisible() {
     if (!this.isPageActive) {
-      console.log('[NavigationTracker] Page became active');
       this.pageStartTime = Date.now();
       this.isPageActive = true;
     }
@@ -136,7 +133,6 @@ class NavigationTracker {
   // Handle page becoming hidden
   handlePageHidden() {
     if (this.isPageActive) {
-      console.log('[NavigationTracker] Page became inactive');
       this.updateTimeSpent();
       this.isPageActive = false;
     }
@@ -157,8 +153,6 @@ class NavigationTracker {
     };
 
     // Check if this is a ChatGPT page and set up prompt monitoring
-    console.log('[NavigationTracker] Current URL:', this.currentUrl);
-    console.log('[NavigationTracker] Hostname:', window.location.hostname);
     
     if (this.isChatGPTPage()) {
       this.setupChatGPTMonitoring();
@@ -176,7 +170,6 @@ class NavigationTracker {
       if (!isDuplicate) {
         navigationData.push(pageData);
         chrome.storage.local.set({ navigationData });
-        console.log(`[NavigationTracker] Recorded visit (${eventType}):`, pageData);
         
         // Update page counter
         this.updatePageCounter();
@@ -220,7 +213,6 @@ class NavigationTracker {
   // Finalize current page session
   finalizePageSession(eventType = 'unknown') {
     if (this.isPageActive) {
-      console.log(`[NavigationTracker] Finalizing session (${eventType}):`, this.currentUrl);
       this.updateTimeSpent();
     }
   }
