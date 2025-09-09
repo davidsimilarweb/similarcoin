@@ -2,10 +2,31 @@ let userAccount = null;
 let web3Provider = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // Force a fresh read from storage when popup opens
+    console.log('[Popup] Opening popup, forcing fresh stats update...');
     await updateStats();
     
     // Try to load saved wallet state first
     await loadSavedWalletState();
+    
+    // Set up storage change listener to auto-update stats
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+        if (areaName === 'local' && (changes.pagesVisited || changes.navigationData || changes.tokenBalance)) {
+            console.log('[Stats] Storage changed, updating stats:', changes);
+            updateStats();
+        }
+    });
+    
+    // Listen for direct messages from content scripts about page counts and data collection
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.type === 'PAGE_COUNTED') {
+            console.log(`[Stats] Page counted event: ${message.pagesVisited} pages, URL: ${message.url}`);
+            updateStats(); // Immediately refresh display
+        } else if (message.type === 'PROMPT_COLLECTED') {
+            console.log(`[Stats] ChatGPT prompt collected: ${message.promptsCount} total prompts, length: ${message.promptLength}`);
+            updateStats(); // Refresh to show any data-based rewards
+        }
+    });
     
     document.getElementById('connect-btn').addEventListener('click', connectWallet);
     document.getElementById('submit-btn').addEventListener('click', submitData);
@@ -13,6 +34,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.log('[Debug] Manual balance refresh triggered');
         console.log('[Debug] Current userAccount:', userAccount);
         console.log('[Debug] Current web3Provider:', !!web3Provider);
+        
+        // Debug: Log current storage state with detailed breakdown
+        const storageData = await chrome.storage.local.get(['pagesVisited', 'timeTracked', 'navigationData', 'chatgptPrompts', 'tokenBalance']);
+        console.log('[Debug] Current storage state:', {
+            pagesVisited: storageData.pagesVisited,
+            timeTracked: storageData.timeTracked, 
+            navigationDataLength: (storageData.navigationData || []).length,
+            chatgptPromptsLength: (storageData.chatgptPrompts || []).length,
+            tokenBalance: storageData.tokenBalance,
+            calculatedClaimable: ((storageData.pagesVisited || 0) * 0.1).toFixed(2)
+        });
         
         if (!userAccount || !web3Provider) {
             console.log('[Debug] Missing connection, attempting to reconnect...');
@@ -33,14 +65,26 @@ async function updateStats() {
         const timeTracked = data.timeTracked || 0;
         const balance = data.tokenBalance || 0;
 
-        // Claimable SIM: 0.1 SIM per page
-        const claimable = (pagesVisited * 0.1).toFixed(2);
+        // Debug log to see what's in storage
+        console.log('[Stats] Current data:', {
+            pagesVisited,
+            timeTracked,
+            navigationDataLength: (data.navigationData || []).length,
+            balance
+        });
 
-        document.getElementById('pages-visited').textContent = pagesVisited;
-        document.getElementById('time-tracked').textContent = timeTracked;
+        // Claimable SIM: 0.01 SIM per page
+        const claimable = (pagesVisited * 0.01).toFixed(2);
+
+        // Update balance display (pages-visited and time-tracked elements don't exist in current UI)
         document.getElementById('balance').textContent = parseFloat(balance).toFixed(2);
         const claimableEl = document.getElementById('claimable');
-        if (claimableEl) claimableEl.textContent = claimable;
+        if (claimableEl) {
+            claimableEl.textContent = claimable;
+            console.log(`[Stats] Updated claimable display to: ${claimable} (pages: ${pagesVisited})`);
+        } else {
+            console.error('[Stats] Claimable element not found!');
+        }
         
     } catch (error) {
         // Silently handle error
@@ -541,7 +585,7 @@ async function submitData() {
             data: submissionData
         }, async (response) => {
             if (response && response.success) {
-                document.getElementById('status').innerHTML = '<span style="color: #16a34a;">Claim successful! SIM minted.</span>';
+                document.getElementById('status').innerHTML = '<span style="color: #16a34a;">Claim successful! Balance will update in ~30 seconds.</span>';
                 
                 await new Promise((resolve) => {
                     chrome.storage.local.set({
@@ -567,7 +611,15 @@ async function submitData() {
         });
         
     } catch (error) {
-        document.getElementById('status').innerHTML = '<span style="color: #ef4444;">Error claiming</span>';
+        console.error('[Submit] Error:', error);
+        
+        // Display the specific error message
+        let errorMessage = 'Error claiming';
+        if (error.message) {
+            errorMessage = error.message;
+        }
+        
+        document.getElementById('status').innerHTML = `<span style="color: #ef4444;">${errorMessage}</span>`;
         document.getElementById('submit-btn').disabled = false;
         document.getElementById('submit-btn').textContent = 'Claim SIM';
     }

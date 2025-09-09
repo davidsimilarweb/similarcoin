@@ -194,7 +194,13 @@ async function submitDataToBackend(data) {
     });
     
     if (!response.ok) {
-      throw new Error('Failed to submit data');
+      // Try to get the error message from the response
+      try {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to submit data');
+      } catch (parseError) {
+        throw new Error('Failed to submit data');
+      }
     }
     
     return await response.json();
