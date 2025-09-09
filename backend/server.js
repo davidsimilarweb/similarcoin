@@ -168,7 +168,7 @@ app.get('/api/balance/:address', async (req, res) => {
     res.json({
       address,
       balance: formattedBalance,
-      symbol: 'DTT'
+      symbol: 'SIM'
     });
     
   } catch (error) {
@@ -216,7 +216,7 @@ app.get('/api/marketplace', async (req, res) => {
       totalDatasets: submissions.length,
       categories: ['shopping', 'social', 'news', 'entertainment', 'productivity', 'general'],
       pricing: {
-        perDataset: '5 DTT',
+        perDataset: '5 SIM',
         bulkDiscount: '20% off for 10+ datasets'
       },
       dataTypes: ['browsing patterns', 'time spent', 'domain categories', 'session analytics']
@@ -241,6 +241,6 @@ app.get('/health', (req, res) => {
 });
 
 app.listen(PORT, async () => {
-  console.log(`DataTrade backend server running on port ${PORT}`);
+  console.log(`SimilarCoin backend server running on port ${PORT}`);
   await initializeBlockchain();
 });

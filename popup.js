@@ -7,6 +7,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     document.getElementById('connect-btn').addEventListener('click', connectWallet);
     document.getElementById('submit-btn').addEventListener('click', submitData);
+    
+    // Setup tab navigation
+    setupTabNavigation();
 });
 
 async function updateStats() {
@@ -16,7 +19,7 @@ async function updateStats() {
         const timeTracked = data.timeTracked || 0;
         const balance = data.tokenBalance || 0;
 
-        // Claimable SIM: 0.1 SIM per page this month
+        // Claimable SIM: 0.1 SIM per page
         const claimable = (pagesVisited * 0.1).toFixed(2);
 
         document.getElementById('pages-visited').textContent = pagesVisited;
@@ -261,27 +264,45 @@ async function connectWallet() {
 }
 
 async function updateTokenBalance() {
-    if (!userAccount) return;
+    if (!userAccount || !web3Provider) return;
     
     try {
-        const contractInfo = await fetch('http://localhost:3000/api/contract-info').then(r => r.json());
-        
-        if (web3Provider) {
-            const contract = new ethers.Contract(
-                contractInfo.address,
-                contractInfo.abi,
-                web3Provider
-            );
-            
-            const balance = await contract.balanceOf(userAccount);
-            const decimals = await contract.decimals();
-            const formattedBalance = ethers.formatUnits(balance, decimals);
-            
-            document.getElementById('balance').textContent = parseFloat(formattedBalance).toFixed(2);
-            chrome.storage.local.set({ tokenBalance: parseFloat(formattedBalance).toFixed(2) });
+        // Get contract info from backend
+        const response = await fetch('http://localhost:3000/api/contract-info');
+        if (!response.ok) {
+            // If backend is down, try to get from local storage as fallback
+            const data = await chrome.storage.local.get(['tokenBalance']);
+            if (data.tokenBalance) {
+                document.getElementById('balance').textContent = parseFloat(data.tokenBalance).toFixed(2);
+            }
+            return;
         }
+        
+        const contractInfo = await response.json();
+        
+        // Create contract instance and get balance directly from MetaMask
+        const contract = new ethers.Contract(
+            contractInfo.address,
+            contractInfo.abi,
+            web3Provider
+        );
+        
+        const balance = await contract.balanceOf(userAccount);
+        const decimals = await contract.decimals();
+        const formattedBalance = ethers.formatUnits(balance, decimals);
+        
+        const balanceValue = parseFloat(formattedBalance).toFixed(2);
+        document.getElementById('balance').textContent = balanceValue;
+        
+        // Store in local storage as backup
+        chrome.storage.local.set({ tokenBalance: balanceValue });
+        
     } catch (error) {
-        // Silently handle error
+        // Fallback to stored balance if MetaMask call fails
+        const data = await chrome.storage.local.get(['tokenBalance']);
+        if (data.tokenBalance) {
+            document.getElementById('balance').textContent = parseFloat(data.tokenBalance).toFixed(2);
+        }
     }
 }
 
@@ -353,29 +374,108 @@ function updateUI(connected) {
     if (connected) {
         const short = `${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
         connectBtn.textContent = 'Connected';
-        if (walletShort) walletShort.textContent = short;
+        if (walletShort) {
+            walletShort.textContent = short;
+            walletShort.style.cursor = 'pointer';
+            walletShort.title = 'Click to copy full address';
+            walletShort.onclick = () => copyToClipboard(userAccount);
+        }
         submitBtn.disabled = false;
         status.innerHTML = '<span class="connected">Wallet connected</span>';
     } else {
         connectBtn.textContent = 'Connect Wallet';
-        if (walletShort) walletShort.textContent = 'Not connected';
+        if (walletShort) {
+            walletShort.textContent = 'Not connected';
+            walletShort.style.cursor = 'default';
+            walletShort.title = '';
+            walletShort.onclick = null;
+        }
         submitBtn.disabled = true;
         status.innerHTML = '<span class="disconnected">Wallet not connected</span>';
     }
+}
+
+// Copy to clipboard function
+async function copyToClipboard(text) {
+    try {
+        await navigator.clipboard.writeText(text);
+        
+        // Show brief feedback
+        const walletShort = document.getElementById('wallet-short');
+        const originalText = walletShort.textContent;
+        walletShort.textContent = 'Copied!';
+        walletShort.style.color = '#16a34a';
+        
+        setTimeout(() => {
+            walletShort.textContent = originalText;
+            walletShort.style.color = '';
+        }, 1000);
+    } catch (error) {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        const walletShort = document.getElementById('wallet-short');
+        const originalText = walletShort.textContent;
+        walletShort.textContent = 'Copied!';
+        walletShort.style.color = '#16a34a';
+        
+        setTimeout(() => {
+            walletShort.textContent = originalText;
+            walletShort.style.color = '';
+        }, 1000);
+    }
+}
+
+// Tab navigation setup
+function setupTabNavigation() {
+    const tabs = document.querySelectorAll('.tab');
+    const homeContent = document.getElementById('home-content');
+    const exploreContent = document.getElementById('explore-content');
+    
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabType = tab.dataset.tab;
+            
+            // Update active tab
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            
+            // Show appropriate content
+            if (tabType === 'home') {
+                homeContent.classList.remove('hidden');
+                exploreContent.classList.add('hidden');
+            } else if (tabType === 'explore') {
+                homeContent.classList.add('hidden');
+                exploreContent.classList.remove('hidden');
+            }
+        });
+    });
+}
+
+// Open integration in new tab
+function openIntegration(url) {
+    chrome.tabs.create({ url: url });
 }
 
 // Set up event listener for account changes
 (async () => {
     const ethereum = await getEthereum();
     if (ethereum) {
-        ethereum.on('accountsChanged', (accounts) => {
+        ethereum.on('accountsChanged', async (accounts) => {
             if (accounts.length === 0) {
                 userAccount = null;
+                web3Provider = null;
                 updateUI(false);
             } else {
                 userAccount = accounts[0];
+                web3Provider = new ethers.BrowserProvider(ethereum);
                 updateUI(true);
-                updateTokenBalance();
+                await updateTokenBalance();
             }
         });
     }
