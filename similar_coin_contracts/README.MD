@@ -165,3 +165,20 @@ Select the account you want to use.
 Find the option to export or view your private key (usually under account settings or security).
 
 Copy the private key and keep it secure—never share it publicly.
+
+---- 
+To check your deployed token on a testnet (like Sepolia), follow these steps:
+
+1. Find your deployed contract address.
+ – This is printed in your terminal after running your Hardhat deploy script.
+
+2. Go to a block explorer for your testnet:
+ – For Sepolia: https://sepolia.etherscan.io/
+
+3. Paste your contract address into the search bar.
+
+4. You’ll see your contract details, transactions, and token info.
+
+If you want to see your token in MetaMask:
+
+Open MetaMask, select the Sepolia network, click “Import tokens,” and paste your contract address.
