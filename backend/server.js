@@ -38,10 +38,9 @@ s3Service = new S3DataService();
 
 async function initializeBlockchain() {
   try {
-    if (process.env.INFURA_API_KEY && process.env.PRIVATE_KEY && 
-        process.env.PRIVATE_KEY !== 'your_private_key_here' && 
-        process.env.INFURA_API_KEY !== 'your_infura_api_key_here') {
-      provider = new ethers.JsonRpcProvider(`https://sepolia.infura.io/v3/${process.env.INFURA_API_KEY}`);
+    if (process.env.SEPOLIA_RPC_URL && process.env.PRIVATE_KEY && 
+        process.env.PRIVATE_KEY !== 'your_private_key_here') {
+      provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
       wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
     } else {
       provider = new ethers.JsonRpcProvider('http://127.0.0.1:8545');

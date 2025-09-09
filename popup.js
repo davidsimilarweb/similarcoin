@@ -7,6 +7,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     document.getElementById('connect-btn').addEventListener('click', connectWallet);
     document.getElementById('submit-btn').addEventListener('click', submitData);
+    document.getElementById('refresh-balance-btn').addEventListener('click', async () => {
+        console.log('[Debug] Manual balance refresh triggered');
+        console.log('[Debug] Current userAccount:', userAccount);
+        console.log('[Debug] Current web3Provider:', !!web3Provider);
+        
+        if (!userAccount || !web3Provider) {
+            console.log('[Debug] Missing connection, attempting to reconnect...');
+            await checkWalletConnection();
+        } else {
+            await updateTokenBalance();
+        }
+    });
     
     // Setup tab navigation
     setupTabNavigation();
@@ -35,18 +47,31 @@ async function updateStats() {
 
 
 async function checkWalletConnection() {
+    console.log('[Connection] Checking wallet connection...');
     const ethereum = await getEthereum();
+    console.log('[Connection] Ethereum object:', !!ethereum);
+    
     if (ethereum) {
         try {
             const accounts = await ethereum.request({ method: 'eth_accounts' });
+            console.log('[Connection] Found accounts:', accounts);
+            
             if (accounts && accounts.length > 0) {
                 userAccount = accounts[0];
+                web3Provider = new ethers.BrowserProvider(ethereum);
+                console.log('[Connection] Connected to:', userAccount);
+                console.log('[Connection] Web3Provider created:', !!web3Provider);
+                
                 updateUI(true);
                 await updateTokenBalance();
+            } else {
+                console.log('[Connection] No accounts found');
             }
         } catch (error) {
-            // Silently handle error
+            console.error('[Connection] Error:', error);
         }
+    } else {
+        console.log('[Connection] No ethereum object available');
     }
 }
 
@@ -233,8 +258,11 @@ function createEthereumProxy(tabId, providerUuid) {
 }
 
 async function connectWallet() {
+    console.log('[Connect] Starting wallet connection...');
     const ethereum = await getEthereum();
+    
     if (!ethereum) {
+        console.log('[Connect] No ethereum object found');
         // Check if we're on a restricted page
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tab && (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('moz-extension://'))) {
@@ -246,39 +274,122 @@ async function connectWallet() {
     }
 
     try {
+        console.log('[Connect] Requesting accounts...');
         const accounts = await ethereum.request({
             method: 'eth_requestAccounts'
         });
         
+        console.log('[Connect] Received accounts:', accounts);
+        
         userAccount = accounts[0];
         web3Provider = new ethers.BrowserProvider(ethereum);
         
+        console.log('[Connect] Set userAccount:', userAccount);
+        console.log('[Connect] Created web3Provider:', !!web3Provider);
+        
         updateUI(true);
+        // Update balance will handle network switching if needed
         await updateTokenBalance();
         
         chrome.storage.local.set({ connectedWallet: userAccount });
         
     } catch (error) {
+        console.error('[Connect] Connection error:', error);
         alert('Failed to connect wallet. Please try again.');
     }
 }
 
 async function updateTokenBalance() {
-    if (!userAccount || !web3Provider) return;
+    if (!userAccount || !web3Provider) {
+        console.log('[Balance] Missing userAccount or web3Provider');
+        return;
+    }
     
     try {
-        // Get contract info from backend
-        const response = await fetch('http://localhost:3000/api/contract-info');
-        if (!response.ok) {
-            // If backend is down, try to get from local storage as fallback
-            const data = await chrome.storage.local.get(['tokenBalance']);
-            if (data.tokenBalance) {
-                document.getElementById('balance').textContent = parseFloat(data.tokenBalance).toFixed(2);
+        console.log('[Balance] Starting balance update for:', userAccount);
+        
+        // First, ensure user is on Sepolia testnet
+        const network = await web3Provider.getNetwork();
+        console.log('[Balance] Current network:', network.chainId, network.name);
+        
+        const sepoliaChainId = 11155111n; // Sepolia testnet chain ID
+        
+        if (network.chainId !== sepoliaChainId) {
+            console.log('[Balance] Wrong network, requesting switch to Sepolia');
+            // Request user to switch to Sepolia
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0xaa36a7' }], // Sepolia chain ID in hex
+                });
+                console.log('[Balance] Network switch requested');
+            } catch (switchError) {
+                console.log('[Balance] Switch error:', switchError);
+                // If network doesn't exist, add it
+                if (switchError.code === 4902) {
+                    await window.ethereum.request({
+                        method: 'wallet_addEthereumChain',
+                        params: [{
+                            chainId: '0xaa36a7',
+                            chainName: 'Sepolia Testnet',
+                            rpcUrls: ['https://sepolia.infura.io/v3/'],
+                            nativeCurrency: {
+                                name: 'ETH',
+                                symbol: 'ETH',
+                                decimals: 18
+                            },
+                            blockExplorerUrls: ['https://sepolia.etherscan.io/']
+                        }]
+                    });
+                }
             }
-            return;
+            return; // Exit and let user switch network, function will be called again
         }
         
-        const contractInfo = await response.json();
+        console.log('[Balance] On correct network, fetching contract info');
+        
+        // Get contract info from backend, with fallback to local file
+        let contractInfo;
+        try {
+            const response = await fetch('http://localhost:3000/api/contract-info');
+            if (response.ok) {
+                contractInfo = await response.json();
+            } else {
+                throw new Error('Backend unavailable');
+            }
+        } catch (error) {
+            console.log('[Balance] Backend unavailable, using local contract info');
+            // Fallback to direct contract info
+            contractInfo = {
+                "address": "0x6aC95F646540f05cC2aC5969a1A573Daab8b7524",
+                "abi": [
+                    "function rewardUser(address user, string memory dataType) external",
+                    "function rewardUserForPages(address user, uint256 pagesVisited) external",
+                    "function rewardRates(string memory dataType) external view returns (uint256)",
+                    "function dailySubmissions(address user, uint256 day) external view returns (uint256)",
+                    "function maxDailySubmissions() external view returns (uint256)",
+                    "function lastSubmission(address user) external view returns (uint256)",
+                    "function cooldownPeriod() external view returns (uint256)",
+                    "function cooldownEnabled() external view returns (bool)",
+                    "function swCoin() external view returns (address)",
+                    "function owner() external view returns (address)",
+                    "function pause() external",
+                    "function unpause() external",
+                    "function paused() external view returns (bool)"
+                ]
+            };
+        }
+        console.log('[Balance] Contract address:', contractInfo.address);
+        
+        // First, check if contract exists at this address
+        const contractCode = await web3Provider.getCode(contractInfo.address);
+        console.log('[Balance] Contract code length:', contractCode.length);
+        
+        if (contractCode === '0x') {
+            console.error('[Balance] No contract found at address:', contractInfo.address);
+            document.getElementById('balance').textContent = 'Contract not found';
+            return;
+        }
         
         // Create contract instance and get balance directly from MetaMask
         const contract = new ethers.Contract(
@@ -287,17 +398,43 @@ async function updateTokenBalance() {
             web3Provider
         );
         
-        const balance = await contract.balanceOf(userAccount);
-        const decimals = await contract.decimals();
+        console.log('[Balance] Distributor contract exists, getting token contract address');
+        
+        // Get the token contract address from the distributor
+        const tokenAddress = await contract.swCoin();
+        console.log('[Balance] Token contract address:', tokenAddress);
+        
+        // Create token contract instance for balance queries
+        const tokenContract = new ethers.Contract(
+            tokenAddress,
+            [
+                "function balanceOf(address account) external view returns (uint256)",
+                "function decimals() external view returns (uint8)",
+                "function symbol() external view returns (string)"
+            ],
+            web3Provider
+        );
+        
+        console.log('[Balance] Calling balanceOf for:', userAccount);
+        const balance = await tokenContract.balanceOf(userAccount);
+        console.log('[Balance] Raw balance:', balance.toString());
+        
+        const decimals = await tokenContract.decimals();
+        console.log('[Balance] Token decimals:', decimals);
+        
         const formattedBalance = ethers.formatUnits(balance, decimals);
+        console.log('[Balance] Formatted balance:', formattedBalance);
         
         const balanceValue = parseFloat(formattedBalance).toFixed(2);
+        console.log('[Balance] Final display value:', balanceValue);
+        
         document.getElementById('balance').textContent = balanceValue;
         
         // Store in local storage as backup
         chrome.storage.local.set({ tokenBalance: balanceValue });
         
     } catch (error) {
+        console.error('[Balance] Error getting balance:', error);
         // Fallback to stored balance if MetaMask call fails
         const data = await chrome.storage.local.get(['tokenBalance']);
         if (data.tokenBalance) {
@@ -393,6 +530,14 @@ function updateUI(connected) {
         submitBtn.disabled = true;
         status.innerHTML = '<span class="disconnected">Wallet not connected</span>';
     }
+}
+
+// Check current connection status
+function checkConnectionStatus() {
+    console.log('[Status] userAccount:', userAccount);
+    console.log('[Status] web3Provider:', !!web3Provider);
+    console.log('[Status] Current balance display:', document.getElementById('balance').textContent);
+    return !!(userAccount && web3Provider);
 }
 
 // Copy to clipboard function
