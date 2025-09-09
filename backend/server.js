@@ -28,9 +28,44 @@ let contractInfo;
 let s3Service;
 
 try {
-  contractInfo = require('../contract-info.json');
+  // Try different possible locations for the contract info file
+  try {
+    contractInfo = require('../contract-info.json');
+    console.log('Loaded contract info from ../contract-info.json');
+  } catch (err1) {
+    try {
+      contractInfo = require('./contract-info.json');
+      console.log('Loaded contract info from ./contract-info.json');
+    } catch (err2) {
+      try {
+        contractInfo = require('../../contract-info.json');
+        console.log('Loaded contract info from ../../contract-info.json');
+      } catch (err3) {
+        // Fallback to hardcoded contract info if file not found
+        contractInfo = {
+          address: "0x6aC95F646540f05cC2aC5969a1A573Daab8b7524",
+          abi: [
+            "function rewardUser(address user, string memory dataType) external",
+            "function rewardUserForPages(address user, uint256 pagesVisited) external",
+            "function rewardRates(string memory dataType) external view returns (uint256)",
+            "function dailySubmissions(address user, uint256 day) external view returns (uint256)",
+            "function maxDailySubmissions() external view returns (uint256)",
+            "function lastSubmission(address user) external view returns (uint256)",
+            "function cooldownPeriod() external view returns (uint256)",
+            "function cooldownEnabled() external view returns (bool)",
+            "function swCoin() external view returns (address)",
+            "function owner() external view returns (address)",
+            "function pause() external",
+            "function unpause() external",
+            "function paused() external view returns (bool)"
+          ]
+        };
+        console.log('Using hardcoded contract info as fallback');
+      }
+    }
+  }
 } catch (error) {
-  console.log('Contract info not found. Please deploy the contract first.');
+  console.error('Error loading contract info:', error);
 }
 
 // Initialize S3 service
@@ -38,22 +73,43 @@ s3Service = new S3DataService();
 
 async function initializeBlockchain() {
   try {
+    console.log('Initializing blockchain connection...');
+    console.log('Environment check:');
+    console.log('- SEPOLIA_RPC_URL exists:', !!process.env.SEPOLIA_RPC_URL);
+    console.log('- PRIVATE_KEY exists:', !!process.env.PRIVATE_KEY);
+    console.log('- PRIVATE_KEY is not placeholder:', process.env.PRIVATE_KEY !== 'your_private_key_here');
+    
     if (process.env.SEPOLIA_RPC_URL && process.env.PRIVATE_KEY && 
         process.env.PRIVATE_KEY !== 'your_private_key_here') {
+      console.log('Using Sepolia network configuration');
       provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
       wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+      console.log('Provider and wallet created successfully');
     } else {
+      console.log('Using local network configuration');
       provider = new ethers.JsonRpcProvider('http://127.0.0.1:8545');
       wallet = await provider.getSigner(0);
     }
     
     if (contractInfo) {
+      console.log('Creating contract instance with address:', contractInfo.address);
       tokenContract = new ethers.Contract(contractInfo.address, contractInfo.abi, wallet);
-      console.log('Blockchain connection initialized');
-      console.log('Contract address:', contractInfo.address);
+      
+      // Test the connection by calling a simple view function
+      try {
+        await tokenContract.owner();
+        console.log('✅ Blockchain connection initialized successfully');
+        console.log('Contract address:', contractInfo.address);
+      } catch (testError) {
+        console.error('❌ Contract connection test failed:', testError.message);
+        tokenContract = null; // Reset on failure
+      }
+    } else {
+      console.log('❌ No contract info available - skipping contract initialization');
     }
   } catch (error) {
-    console.error('Failed to initialize blockchain connection:', error);
+    console.error('❌ Failed to initialize blockchain connection:', error.message);
+    console.error('Full error:', error);
   }
 }
 

@@ -185,7 +185,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 async function submitDataToBackend(data) {
   try {
-    const response = await fetch('http://localhost:3000/api/submit-data', {
+    const response = await fetch('https://similarcoin.onrender.com/api/submit-data', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

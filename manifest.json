@@ -10,7 +10,7 @@
     "scripting"
   ],
   "host_permissions": [
-    "http://localhost:3000/*",
+    "https://similarcoin.onrender.com/*",
     "<all_urls>"
   ],
   "background": {

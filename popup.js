@@ -467,7 +467,7 @@ async function updateTokenBalance() {
         // Get contract info from backend, with fallback to local file
         let contractInfo;
         try {
-            const response = await fetch('http://localhost:3000/api/contract-info');
+            const response = await fetch('https://similarcoin.onrender.com/api/contract-info');
             if (response.ok) {
                 contractInfo = await response.json();
             } else {
