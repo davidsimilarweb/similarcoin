@@ -36,9 +36,9 @@ contract SWCoinDistributor is Ownable, Pausable {
         require(swCoinAddress != address(0), "Invalid SWCoin address");
         swCoin = IERC20(swCoinAddress);
         
-        // Set default reward rate: 0.1 tokens per page visited
+        // Set default reward rate: 0.01 tokens per page visited
         // Assuming SWCoin has 18 decimals like most ERC20 tokens
-        rewardRates["perpage"] = 1 * 10**17; // 0.1 tokens per page
+        rewardRates["perpage"] = 1 * 10**16; // 0.01 tokens per page
     }
     
     /**
@@ -102,7 +102,7 @@ contract SWCoinDistributor is Ownable, Pausable {
             );
         }
         
-        // Calculate reward: 0.1 tokens per page visited
+        // Calculate reward: 0.01 tokens per page visited
         uint256 rewardAmount = pagesVisited * rewardRates["perpage"];
         
         // Update tracking
