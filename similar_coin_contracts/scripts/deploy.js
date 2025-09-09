@@ -12,9 +12,9 @@ async function main() {
   const swCoin = await SWCoin.deploy(tokenName, tokenSymbol);
 
   // Wait for the contract to be deployed to the network.
-  await swCoin.deployed();
+  await swCoin.waitForDeployment();
 
-  console.log(`SWCoin deployed to: ${swCoin.address}`);
+  console.log(`SWCoin deployed to: ${await swCoin.getAddress()}`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
