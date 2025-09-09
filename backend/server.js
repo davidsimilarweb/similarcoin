@@ -106,7 +106,7 @@ app.post('/api/submit-data', async (req, res) => {
     
     try {
       
-      // Use simple flat rate: 0.1 tokens per page visited
+      // Use simple flat rate: 0.01 tokens per page visited
       const tx = await tokenContract.rewardUserForPages(walletAddress, pagesVisited);
       
       const receipt = await tx.wait();

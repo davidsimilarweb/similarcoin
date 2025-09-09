@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             navigationDataLength: (storageData.navigationData || []).length,
             chatgptPromptsLength: (storageData.chatgptPrompts || []).length,
             tokenBalance: storageData.tokenBalance,
-            calculatedClaimable: ((storageData.pagesVisited || 0) * 0.1).toFixed(2)
+            calculatedClaimable: ((storageData.pagesVisited || 0) * 0.01).toFixed(2)
         });
         
         if (!userAccount || !web3Provider) {
@@ -515,6 +515,7 @@ async function submitData() {
         }, async (response) => {
             if (response && response.success) {
                 document.getElementById('status').innerHTML = '<span style="color: #16a34a;">Claim successful! Balance will update in ~30 seconds.</span>';
+                try { startConfetti(); } catch (e) {}
                 
                 await new Promise((resolve) => {
                     chrome.storage.local.set({
@@ -677,4 +678,72 @@ function openIntegration(url) {
         });
     }
 })();
+
+// Lightweight confetti animation rendered on a canvas overlay
+function startConfetti() {
+    const canvas = document.getElementById('confetti-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    const deviceRatio = window.devicePixelRatio || 1;
+    const logicalWidth = canvas.clientWidth || canvas.getBoundingClientRect().width;
+    const logicalHeight = canvas.clientHeight || canvas.getBoundingClientRect().height;
+    canvas.width = Math.max(1, Math.floor(logicalWidth * deviceRatio));
+    canvas.height = Math.max(1, Math.floor(logicalHeight * deviceRatio));
+    ctx.setTransform(deviceRatio, 0, 0, deviceRatio, 0, 0);
+
+    const W = logicalWidth;
+    const H = logicalHeight;
+    const colors = ['#1d4ed8', '#3b82f6', '#60a5fa', '#22c55e', '#fb923c', '#f97316'];
+    const count = 120;
+    const pieces = [];
+
+    for (let i = 0; i < count; i++) {
+        pieces.push({
+            x: Math.random() * W,
+            y: -20 - Math.random() * 60,
+            w: 6 + Math.random() * 6,
+            h: 8 + Math.random() * 10,
+            rot: Math.random() * Math.PI,
+            vx: -1 + Math.random() * 2,
+            vy: 2 + Math.random() * 2,
+            vr: -0.15 + Math.random() * 0.3,
+            color: colors[Math.floor(Math.random() * colors.length)]
+        });
+    }
+
+    let active = true;
+    const endTime = performance.now() + 1600;
+
+    function frame(t) {
+        ctx.clearRect(0, 0, W, H);
+        for (const p of pieces) {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.rot += p.vr;
+            p.vy += 0.02; // gravity
+
+            if (p.y > H + 20) {
+                p.y = -20;
+                p.x = Math.random() * W;
+                p.vy = 2 + Math.random() * 2;
+            }
+
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rot);
+            ctx.fillStyle = p.color;
+            ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+            ctx.restore();
+        }
+
+        if (active && t < endTime) {
+            requestAnimationFrame(frame);
+        } else {
+            ctx.clearRect(0, 0, W, H);
+        }
+    }
+
+    requestAnimationFrame(frame);
+}
 
