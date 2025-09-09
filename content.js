@@ -161,18 +161,20 @@ class NavigationTracker {
     chrome.storage.local.get(['navigationData'], (result) => {
       const navigationData = result.navigationData || [];
       
-      // Avoid duplicates within 5 seconds
+      // Always count new pages, but avoid rapid fire duplicates (within 1 second)
       const isDuplicate = navigationData.some(item => 
         item.url === pageData.url && 
-        Math.abs(item.timestamp - pageData.timestamp) < 5000
+        Math.abs(item.timestamp - pageData.timestamp) < 1000
       );
       
       if (!isDuplicate) {
         navigationData.push(pageData);
         chrome.storage.local.set({ navigationData });
         
-        // Update page counter
+        // Update page counter - count every unique URL visit
         this.updatePageCounter();
+      } else {
+        console.log(`[PageCounter] Skipping duplicate URL within 1 second: ${pageData.url}`);
       }
     });
   }
@@ -221,7 +223,17 @@ class NavigationTracker {
   updatePageCounter() {
     chrome.storage.local.get(['pagesVisited'], (result) => {
       const pagesVisited = (result.pagesVisited || 0) + 1;
-      chrome.storage.local.set({ pagesVisited });
+      console.log(`[PageCounter] Updating page count from ${result.pagesVisited || 0} to ${pagesVisited} for URL: ${this.currentUrl}`);
+      chrome.storage.local.set({ pagesVisited }, () => {
+        // Notify popup about the page count change
+        chrome.runtime.sendMessage({
+          type: 'PAGE_COUNTED',
+          pagesVisited: pagesVisited,
+          url: this.currentUrl
+        }).catch(() => {
+          // Popup might not be open, that's fine
+        });
+      });
     });
   }
 
@@ -430,7 +442,16 @@ class NavigationTracker {
         prompts.splice(0, prompts.length - 100);
       }
 
-      chrome.storage.local.set({ chatgptPrompts: prompts });
+      chrome.storage.local.set({ chatgptPrompts: prompts }, () => {
+        // Notify popup about new prompt
+        chrome.runtime.sendMessage({
+          type: 'PROMPT_COLLECTED',
+          promptsCount: prompts.length,
+          promptLength: cleanPrompt.length
+        }).catch(() => {
+          // Popup might not be open, that's fine
+        });
+      });
     });
   }
 

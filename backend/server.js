@@ -111,15 +111,15 @@ app.post('/api/submit-data', async (req, res) => {
       
       const receipt = await tx.wait();
       
-      // Calculate tokens rewarded: 0.1 * pagesVisited
-      const tokensRewarded = (pagesVisited * 0.1).toString();
+      // Calculate tokens rewarded: 0.01 * pagesVisited
+      const tokensRewarded = (pagesVisited * 0.01).toString();
       
       res.json({
         success: true,
         transactionHash: receipt.transactionHash,
         tokensRewarded,
         pagesVisited,
-        ratePerPage: '0.1',
+        ratePerPage: '0.01',
         dataScore,
         submissionId: s3StorageResult?.submissionId,
         dataStored: !!s3StorageResult
@@ -127,15 +127,45 @@ app.post('/api/submit-data', async (req, res) => {
       
     } catch (mintError) {
       
-      if (mintError.message.includes('Cooldown period not met')) {
+      // Extract the actual contract error message
+      let errorMessage = 'Failed to mint tokens';
+      
+      if (mintError.reason) {
+        // ethers.js provides the revert reason directly
+        errorMessage = mintError.reason;
+      } else if (mintError.revert && mintError.revert.args && mintError.revert.args[0]) {
+        // Sometimes it's in the revert object
+        errorMessage = mintError.revert.args[0];
+      } else if (mintError.message.includes('execution reverted:')) {
+        // Extract from the message
+        const match = mintError.message.match(/execution reverted: "([^"]+)"/);
+        if (match) {
+          errorMessage = match[1];
+        }
+      } else if (mintError.message.includes('Cooldown period not met')) {
+        errorMessage = 'Cooldown period active. Please wait before submitting again.';
+      }
+      
+      // Return appropriate status code based on error
+      if (errorMessage.includes('Daily submission limit exceeded')) {
         return res.status(429).json({ 
-          error: 'Cooldown period active. Please wait before submitting again.',
-          cooldown: '1 hour'
+          error: errorMessage,
+          type: 'daily_limit'
+        });
+      } else if (errorMessage.includes('Cooldown period') || errorMessage.includes('wait')) {
+        return res.status(429).json({ 
+          error: errorMessage,
+          type: 'cooldown'
+        });
+      } else if (errorMessage.includes('Must have visited at least 1 page')) {
+        return res.status(400).json({ 
+          error: errorMessage,
+          type: 'invalid_data'
         });
       }
       
       res.status(500).json({ 
-        error: 'Failed to mint tokens',
+        error: errorMessage,
         details: mintError.message 
       });
     }
