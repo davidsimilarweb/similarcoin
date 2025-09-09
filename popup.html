@@ -3,161 +3,133 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DataTrade</title>
+    <title>SimilarCoin Rewards</title>
     <style>
         body {
-            width: 350px;
-            height: 500px;
+            width: 360px;
+            height: 560px;
             margin: 0;
             padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(180deg, #f5f4ff 0%, #f0f7ff 100%);
+            color: #0f172a;
         }
         .container {
-            padding: 20px;
+            padding: 16px;
             height: 100%;
             display: flex;
             flex-direction: column;
+            gap: 12px;
         }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .logo {
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 8px;
-        }
-        .subtitle {
-            font-size: 12px;
-            opacity: 0.8;
-        }
-        .balance-card {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
-            text-align: center;
-            backdrop-filter: blur(10px);
-        }
-        .balance-label {
-            font-size: 14px;
-            opacity: 0.8;
-            margin-bottom: 8px;
-        }
-        .balance-amount {
-            font-size: 32px;
-            font-weight: bold;
-            margin-bottom: 4px;
-        }
-        .balance-currency {
-            font-size: 16px;
-            opacity: 0.9;
-        }
-        .stats {
+        .topbar {
             display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
+            align-items: center;
+            justify-content: space-between;
         }
-        .stat-item {
-            flex: 1;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            padding: 15px;
-            text-align: center;
-            backdrop-filter: blur(10px);
-        }
-        .stat-value {
+        .title {
             font-size: 18px;
-            font-weight: bold;
-            margin-bottom: 4px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
         }
-        .stat-label {
-            font-size: 11px;
-            opacity: 0.8;
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
         }
-        .connect-wallet {
-            background: #ff6b35;
-            border: none;
-            border-radius: 8px;
-            color: white;
-            padding: 15px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-bottom: 15px;
-            transition: all 0.3s ease;
-        }
-        .connect-wallet:hover {
-            background: #e55a2b;
-            transform: translateY(-2px);
-        }
-        .submit-data {
-            background: #4CAF50;
-            border: none;
-            border-radius: 8px;
-            color: white;
-            padding: 15px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-bottom: 15px;
-            transition: all 0.3s ease;
-        }
-        .submit-data:hover {
-            background: #45a049;
-            transform: translateY(-2px);
-        }
-        .submit-data:disabled {
-            background: #cccccc;
-            cursor: not-allowed;
-            transform: none;
-        }
-        .status {
+        .hero {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             text-align: center;
+            gap: 8px;
+            background: linear-gradient(180deg, #fafaff 0%, #ffffff 60%);
+        }
+        .hero .badge {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #60a5fa, #fb923c 90%);
+            box-shadow: inset 0 0 0 4px #ffffff;
+        }
+        .muted {
+            color: #64748b;
             font-size: 12px;
-            opacity: 0.8;
-            padding: 10px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 6px;
         }
-        .connected {
-            color: #4CAF50;
-            font-weight: bold;
+        .big-number {
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
         }
-        .disconnected {
-            color: #ff6b35;
+        .inline-unit { font-size: 16px; font-weight: 600; color: #334155; }
+        .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .pill { background: #fff7ed; color: #c2410c; border-radius: 999px; padding: 6px 10px; font-size: 12px; font-weight: 600; }
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .stat { background: #1e3a8a; color: white; border-radius: 12px; padding: 12px; }
+        .stat .label { font-size: 11px; opacity: 0.8; }
+        .stat .value { font-size: 18px; font-weight: 700; }
+        .button {
+            width: 100%;
+            background: linear-gradient(90deg, #2563eb, #1d4ed8);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            padding: 14px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            box-shadow: 0 8px 16px rgba(37,99,235,0.25);
         }
+        .button:hover { transform: translateY(-1px); box-shadow: 0 10px 18px rgba(37,99,235,0.32); }
+        .button:disabled { background: #c7cbe6; cursor: not-allowed; box-shadow: none; }
+        .status { text-align: center; font-size: 12px; color: #64748b; padding: 8px; }
+        .connected { color: #16a34a; font-weight: 700; }
+        .disconnected { color: #ef4444; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <div class="logo">DataTrade</div>
-            <div class="subtitle">Earn tokens from your browsing data</div>
+        <div class="topbar">
+            <div class="title">Rewards</div>
         </div>
-        
-        <div class="balance-card">
-            <div class="balance-label">Your Balance</div>
-            <div class="balance-amount" id="balance">0</div>
-            <div class="balance-currency">DTT</div>
+
+        <div class="card hero">
+            <div class="badge"></div>
+            <div class="muted">You're earning for browsing</div>
+            <div class="big-number"><span id="claimable">0.00</span> <span class="inline-unit">SIM</span></div>
+            <div class="muted">available to claim this month</div>
         </div>
-        
-        <div class="stats">
-            <div class="stat-item">
-                <div class="stat-value" id="pages-visited">0</div>
-                <div class="stat-label">Pages Visited</div>
+
+        <div class="card">
+            <div class="row" style="margin-bottom: 8px;">
+                <div class="row" style="gap:8px;">
+                    <span class="pill">Payout account</span>
+                </div>
+                <div class="muted" id="wallet-short">Not connected</div>
             </div>
-            <div class="stat-item">
-                <div class="stat-value" id="time-tracked">0</div>
-                <div class="stat-label">Minutes Tracked</div>
+            <div class="row">
+                <div>
+                    <div class="muted">Your balance</div>
+                    <div style="font-weight:800; font-size:22px"><span id="balance">0.00</span> <span class="inline-unit">SIM</span></div>
+                </div>
+                <button class="button" id="connect-btn" style="width:auto; padding:10px 14px; box-shadow:none;">Connect</button>
             </div>
         </div>
-        
-        <button class="connect-wallet" id="connect-btn">Connect Wallet</button>
-        <button class="submit-data" id="submit-btn" disabled>Submit Data for Tokens</button>
-        
+
+        <div class="stat-grid">
+            <div class="stat">
+                <div class="label">Pages received this month</div>
+                <div class="value" id="pages-visited">0</div>
+            </div>
+            <div class="stat">
+                <div class="label">Minutes tracked</div>
+                <div class="value" id="time-tracked">0</div>
+            </div>
+        </div>
+
+        <button class="button" id="submit-btn" disabled>Claim SIM</button>
+
         <div class="status" id="status">
             <span class="disconnected">Wallet not connected</span>
         </div>

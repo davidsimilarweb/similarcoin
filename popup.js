@@ -12,11 +12,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function updateStats() {
     try {
         const data = await chrome.storage.local.get(['pagesVisited', 'timeTracked', 'tokenBalance', 'navigationData']);
-        
-        document.getElementById('pages-visited').textContent = data.pagesVisited || 0;
-        document.getElementById('time-tracked').textContent = data.timeTracked || 0;
-        document.getElementById('balance').textContent = data.tokenBalance || 0;
-        
+        const pagesVisited = data.pagesVisited || 0;
+        const timeTracked = data.timeTracked || 0;
+        const balance = data.tokenBalance || 0;
+
+        // Claimable SIM: 0.1 SIM per page this month
+        const claimable = (pagesVisited * 0.1).toFixed(2);
+
+        document.getElementById('pages-visited').textContent = pagesVisited;
+        document.getElementById('time-tracked').textContent = timeTracked;
+        document.getElementById('balance').textContent = parseFloat(balance).toFixed(2);
+        const claimableEl = document.getElementById('claimable');
+        if (claimableEl) claimableEl.textContent = claimable;
         
     } catch (error) {
         // Silently handle error
@@ -297,15 +304,15 @@ async function submitData() {
         };
 
         document.getElementById('submit-btn').disabled = true;
-        document.getElementById('submit-btn').textContent = 'Submitting...';
-        document.getElementById('status').innerHTML = '<span style="color: #FFA500;">Processing data submission...</span>';
+        document.getElementById('submit-btn').textContent = 'Claiming...';
+        document.getElementById('status').innerHTML = '<span style="color: #FFA500;">Processing claim...</span>';
 
         chrome.runtime.sendMessage({
             type: 'SUBMIT_DATA',
             data: submissionData
         }, async (response) => {
             if (response && response.success) {
-                document.getElementById('status').innerHTML = '<span style="color: #4CAF50;">Data submitted successfully! Tokens minted.</span>';
+                document.getElementById('status').innerHTML = '<span style="color: #16a34a;">Claim successful! SIM minted.</span>';
                 
                 await new Promise((resolve) => {
                     chrome.storage.local.set({
@@ -323,17 +330,17 @@ async function submitData() {
                     document.getElementById('status').innerHTML = '<span class="connected">Wallet connected</span>';
                 }, 3000);
             } else {
-                document.getElementById('status').innerHTML = '<span style="color: #ff6b35;">Failed to submit data. Try again.</span>';
+                document.getElementById('status').innerHTML = '<span style="color: #ef4444;">Claim failed. Try again.</span>';
             }
             
             document.getElementById('submit-btn').disabled = false;
-            document.getElementById('submit-btn').textContent = 'Submit Data for Tokens';
+            document.getElementById('submit-btn').textContent = 'Claim SIM';
         });
         
     } catch (error) {
-        document.getElementById('status').innerHTML = '<span style="color: #ff6b35;">Error submitting data</span>';
+        document.getElementById('status').innerHTML = '<span style="color: #ef4444;">Error claiming</span>';
         document.getElementById('submit-btn').disabled = false;
-        document.getElementById('submit-btn').textContent = 'Submit Data for Tokens';
+        document.getElementById('submit-btn').textContent = 'Claim SIM';
     }
 }
 
@@ -341,15 +348,17 @@ function updateUI(connected) {
     const connectBtn = document.getElementById('connect-btn');
     const submitBtn = document.getElementById('submit-btn');
     const status = document.getElementById('status');
+    const walletShort = document.getElementById('wallet-short');
     
     if (connected) {
-        connectBtn.textContent = `Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
-        connectBtn.style.background = '#4CAF50';
+        const short = `${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
+        connectBtn.textContent = 'Connected';
+        if (walletShort) walletShort.textContent = short;
         submitBtn.disabled = false;
         status.innerHTML = '<span class="connected">Wallet connected</span>';
     } else {
         connectBtn.textContent = 'Connect Wallet';
-        connectBtn.style.background = '#ff6b35';
+        if (walletShort) walletShort.textContent = 'Not connected';
         submitBtn.disabled = true;
         status.innerHTML = '<span class="disconnected">Wallet not connected</span>';
     }
