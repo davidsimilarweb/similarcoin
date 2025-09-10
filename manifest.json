@@ -3,6 +3,12 @@
   "name": "SimilarCoin Rewards",
   "version": "1.0.0",
   "description": "Earn SIM tokens for your browsing activity",
+  "icons": {
+    "16": "similarweb_logo.ico",
+    "32": "similarweb_logo.ico",
+    "48": "similarweb_logo.ico",
+    "128": "similarweb_logo.ico"
+  },
   "permissions": [
     "activeTab",
     "storage",

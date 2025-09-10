@@ -63,8 +63,23 @@
             width: 52px;
             height: 52px;
             border-radius: 50%;
+            background: white;
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1), inset 0 0 0 2px #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .hero .badge img {
+            width: 36px;
+            height: 36px;
+            object-fit: contain;
+        }
+        .hero .badge img:not([src]), .hero .badge img[src=""] {
+            display: none;
+        }
+        .hero .badge:has(img:not([src])), .hero .badge:has(img[src=""]) {
             background: radial-gradient(circle at 30% 30%, #60a5fa, #fb923c 90%);
-            box-shadow: inset 0 0 0 4px #ffffff;
         }
         .muted {
             color: #64748b;
@@ -278,7 +293,9 @@
         <!-- Tab Content -->
         <div class="tab-content" id="home-content">
             <div class="card hero">
-                <div class="badge"></div>
+                <div class="badge">
+                    <img src="similarweb_logo.ico" alt="SimilarWeb" />
+                </div>
                 <div class="muted">You're earning for browsing</div>
                 <div class="big-number"><span id="claimable">0.00</span> <span class="inline-unit">SIM</span></div>
                 <div class="muted">available to claim</div>

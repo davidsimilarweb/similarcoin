@@ -104,30 +104,54 @@ function updateCouponAvailability(balance) {
 
 async function checkWalletConnection() {
     console.log('[Connection] Checking wallet connection...');
-    const ethereum = await getEthereum();
-    console.log('[Connection] Ethereum object:', !!ethereum);
     
-    if (ethereum) {
-        try {
-            const accounts = await ethereum.request({ method: 'eth_accounts' });
-            console.log('[Connection] Found accounts:', accounts);
-            
-            if (accounts && accounts.length > 0) {
-                userAccount = accounts[0];
-                web3Provider = new ethers.BrowserProvider(ethereum);
-                console.log('[Connection] Connected to:', userAccount);
-                console.log('[Connection] Web3Provider created:', !!web3Provider);
-                
-                updateUI(true);
-                await updateTokenBalance();
-            } else {
-                console.log('[Connection] No accounts found');
-            }
-        } catch (error) {
-            console.error('[Connection] Error:', error);
+    try {
+        const ethereum = await getEthereum();
+        
+        if (!ethereum) {
+            console.log('[Connection] No MetaMask detected');
+            updateUI(false);
+            return;
         }
-    } else {
-        console.log('[Connection] No ethereum object available');
+        
+        console.log('[Connection] MetaMask detected, checking accounts...');
+        
+        // Add timeout to prevent hanging
+        const accountsPromise = ethereum.request({ method: 'eth_accounts' });
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Check accounts timeout')), 10000);
+        });
+        
+        const accounts = await Promise.race([accountsPromise, timeoutPromise]);
+        console.log('[Connection] Found accounts:', accounts);
+        
+        if (accounts && accounts.length > 0) {
+            userAccount = accounts[0];
+            web3Provider = new ethers.BrowserProvider(ethereum);
+            console.log('[Connection] Connected to:', userAccount);
+            console.log('[Connection] Web3Provider created:', !!web3Provider);
+            
+            updateUI(true);
+            
+            // Update balance with error handling
+            try {
+                await updateTokenBalance();
+            } catch (balanceError) {
+                console.warn('[Connection] Balance update failed during auto-connect:', balanceError);
+                // Don't fail the connection check if balance update fails
+            }
+        } else {
+            console.log('[Connection] No accounts found');
+            updateUI(false);
+        }
+        
+    } catch (error) {
+        console.error('[Connection] Error checking wallet connection:', error);
+        updateUI(false);
+        
+        if (error.message === 'Check accounts timeout') {
+            console.warn('[Connection] Timeout while checking accounts, treating as not connected');
+        }
     }
 }
 
@@ -323,10 +347,15 @@ async function loadSavedWalletState() {
                 console.log('[Wallet] Found saved state:', response.walletState);
                 
                 // Try to reconnect using the saved account
-                const ethereum = await getEthereum();
-                if (ethereum) {
-                    try {
-                        const accounts = await ethereum.request({ method: 'eth_accounts' });
+                try {
+                    const ethereum = await getEthereum();
+                    if (ethereum) {
+                        const accountsPromise = ethereum.request({ method: 'eth_accounts' });
+                        const timeoutPromise = new Promise((_, reject) => {
+                            setTimeout(() => reject(new Error('Saved state check timeout')), 5000);
+                        });
+                        
+                        const accounts = await Promise.race([accountsPromise, timeoutPromise]);
                         if (accounts && accounts.length > 0 && 
                             accounts[0].toLowerCase() === response.walletState.account.toLowerCase()) {
                             
@@ -336,13 +365,17 @@ async function loadSavedWalletState() {
                             console.log('[Wallet] Reconnected to saved account:', userAccount);
                             
                             updateUI(true);
-                            await updateTokenBalance();
+                            try {
+                                await updateTokenBalance();
+                            } catch (balanceError) {
+                                console.warn('[Wallet] Balance update failed during reconnect:', balanceError);
+                            }
                             resolve(true);
                             return;
                         }
-                    } catch (error) {
-                        console.error('[Wallet] Error checking saved state:', error);
                     }
+                } catch (error) {
+                    console.error('[Wallet] Error checking saved state:', error);
                 }
             }
             
@@ -378,28 +411,30 @@ async function connectWallet() {
     // Show connecting state
     updateUI('connecting');
     
-    const ethereum = await getEthereum();
-    
-    if (!ethereum) {
-        console.log('[Connect] No ethereum object found');
-        // Update UI back to disconnected state
-        updateUI(false);
-        
-        // Check if we're on a restricted page
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (tab && (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('moz-extension://'))) {
-            alert('Please navigate to a website (like google.com) to connect MetaMask. Extension pages cannot access MetaMask.');
-        } else {
-            alert('Please install MetaMask to use this extension!');
-        }
-        return;
-    }
-
     try {
-        console.log('[Connect] Requesting accounts...');
-        const accounts = await ethereum.request({
+        // Use the proper getEthereum function that accesses web page context
+        const ethereum = await getEthereum();
+        
+        if (!ethereum) {
+            throw new Error('MetaMask not installed or not accessible. Please make sure MetaMask is installed and navigate to a website first.');
+        }
+        
+        console.log('[Connect] MetaMask detected, requesting accounts...');
+        
+        // Add timeout to prevent hanging
+        const accountsPromise = ethereum.request({
             method: 'eth_requestAccounts'
         });
+        
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Connection timeout')), 30000); // 30 second timeout
+        });
+        
+        const accounts = await Promise.race([accountsPromise, timeoutPromise]);
+        
+        if (!accounts || accounts.length === 0) {
+            throw new Error('No accounts found');
+        }
         
         console.log('[Connect] Received accounts:', accounts);
         
@@ -410,17 +445,34 @@ async function connectWallet() {
         console.log('[Connect] Created web3Provider:', !!web3Provider);
         
         updateUI(true);
-        // Update balance will handle network switching if needed
-        await updateTokenBalance();
+        
+        // Update balance with timeout protection
+        try {
+            await updateTokenBalance();
+        } catch (balanceError) {
+            console.warn('[Connect] Balance update failed, but connection successful:', balanceError);
+            // Don't fail the connection if balance update fails
+        }
         
         // Save wallet state in background script for persistence
         await saveWalletState(true, userAccount);
         
     } catch (error) {
         console.error('[Connect] Connection error:', error);
-        // Update UI back to disconnected state
         updateUI(false);
-        alert('Failed to connect wallet. Please try again.');
+        
+        // More specific error messages
+        if (error.message.includes('MetaMask not installed') || error.message.includes('not accessible')) {
+            alert('MetaMask is not installed or not accessible. Please install MetaMask extension, navigate to a website, and try again.');
+        } else if (error.message === 'Connection timeout') {
+            alert('Connection timed out. Please try again and make sure to approve the MetaMask request.');
+        } else if (error.code === 4001) {
+            alert('Connection rejected. Please approve the connection request in MetaMask.');
+        } else if (error.code === -32002) {
+            alert('A MetaMask request is already pending. Please check MetaMask and try again.');
+        } else {
+            alert(`Failed to connect wallet: ${error.message}`);
+        }
     }
 }
 
@@ -441,31 +493,53 @@ async function updateTokenBalance() {
         
         if (network.chainId !== sepoliaChainId) {
             console.log('[Balance] Wrong network, requesting switch to Sepolia');
-            // Request user to switch to Sepolia
+            // Request user to switch to Sepolia with timeout
             try {
-                await window.ethereum.request({
+                const switchPromise = window.ethereum.request({
                     method: 'wallet_switchEthereumChain',
                     params: [{ chainId: '0xaa36a7' }], // Sepolia chain ID in hex
                 });
+                
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('Network switch timeout')), 15000);
+                });
+                
+                await Promise.race([switchPromise, timeoutPromise]);
                 console.log('[Balance] Network switch requested');
             } catch (switchError) {
                 console.log('[Balance] Switch error:', switchError);
+                
+                if (switchError.message === 'Network switch timeout') {
+                    console.warn('[Balance] Network switch timed out, continuing anyway');
+                    return;
+                }
+                
                 // If network doesn't exist, add it
                 if (switchError.code === 4902) {
-                    await window.ethereum.request({
-                        method: 'wallet_addEthereumChain',
-                        params: [{
-                            chainId: '0xaa36a7',
-                            chainName: 'Sepolia Testnet',
-                            rpcUrls: ['https://sepolia.infura.io/v3/'],
-                            nativeCurrency: {
-                                name: 'ETH',
-                                symbol: 'ETH',
-                                decimals: 18
-                            },
-                            blockExplorerUrls: ['https://sepolia.etherscan.io/']
-                        }]
-                    });
+                    try {
+                        const addPromise = window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: '0xaa36a7',
+                                chainName: 'Sepolia Testnet',
+                                rpcUrls: ['https://sepolia.infura.io/v3/'],
+                                nativeCurrency: {
+                                    name: 'ETH',
+                                    symbol: 'ETH',
+                                    decimals: 18
+                                },
+                                blockExplorerUrls: ['https://sepolia.etherscan.io/']
+                            }]
+                        });
+                        
+                        const addTimeoutPromise = new Promise((_, reject) => {
+                            setTimeout(() => reject(new Error('Add network timeout')), 15000);
+                        });
+                        
+                        await Promise.race([addPromise, addTimeoutPromise]);
+                    } catch (addError) {
+                        console.error('[Balance] Failed to add Sepolia network:', addError);
+                    }
                 }
             }
             return; // Exit and let user switch network, function will be called again
